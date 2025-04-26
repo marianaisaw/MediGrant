@@ -44,6 +44,17 @@ export default function HyperGrantAI() {
   const mouseY = useMotionValue(0)
   const rotateX = useTransform(mouseY, [ -100, 100 ], [ 5, -5 ])
   const rotateY = useTransform(mouseX, [ -100, 100 ], [ -5, 5 ])
+  const headerFullText = 'Hello! I\'m MediGrant AI. Type your query below.'
+  const [typedHeader, setTypedHeader] = useState('')
+  useEffect(() => {
+    let index = 0
+    const timer = setInterval(() => {
+      setTypedHeader(headerFullText.slice(0, index + 1))
+      index++
+      if (index === headerFullText.length) clearInterval(timer)
+    }, 40)
+    return () => clearInterval(timer)
+  }, [])
 
   // attach to container
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -351,6 +362,7 @@ export default function HyperGrantAI() {
             <motion.div
               whileHover={{ scale: message.sender === 'bot' ? 1.01 : 1 }}
             >
+              { hasQueried && 
               <Card 
                 className={`max-w-3xl backdrop-blur-lg relative overflow-hidden ${
                   message.sender === 'user' 
@@ -360,6 +372,7 @@ export default function HyperGrantAI() {
                       : 'bg-gray-900/60 border-blue-400/30 shadow-[0_0_30px_-10px_rgba(59,130,246,0.2)]'
                 }`}
               >
+              
                 {/* Animated border glow */}
                 <div className={`absolute inset-0 rounded-lg pointer-events-none ${
                   message.status === 'typing' 
@@ -447,6 +460,7 @@ export default function HyperGrantAI() {
                   </div>
                 </CardContent>
               </Card>
+            }
             </motion.div>
           </motion.div>
         ))}
@@ -454,13 +468,20 @@ export default function HyperGrantAI() {
       </main>
 
       {!hasQueried && (
+        <>
+        <h2 className="text-center text-4xl font-semibold text-white mb-[12em] tracking-tight">
+            {typedHeader}
+            {/* 2. Blinking cursor */}
+            {typedHeader.length < headerFullText.length && (
+              <span className="inline-block w-[1ch] h-8 bg-white ml-1 animate-pulse" />
+            )}
+          </h2>
         <motion.div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
                      p-6 bg-gradient-to-br from-blue-950/50 to-black/80
                      rounded-3xl backdrop-blur-xl shadow-[0_0_60px_20px_rgba(59,130,246,0.4)]
                      pointer-events-auto
-                     w-[80vw] max-w-[800px]
-                     "
+                     w-[80vw] max-w-[800px]"
           style={{ rotateX, rotateY }}
           initial={{ opacity: 0, scale: 0.6, rotateZ: 10 }}
           animate={{ opacity: 1, scale: 1, rotateZ: 0 }}
@@ -474,6 +495,7 @@ export default function HyperGrantAI() {
             animate={{ scale: [0.8, 1.2], opacity: [0.4, 0.1] }}
             transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
           />
+
           <form onSubmit={handleSubmit} className="relative flex gap-3">
             <Textarea
               className="w-full bg-transparent border border-indigo-400/50
@@ -490,8 +512,8 @@ export default function HyperGrantAI() {
                 }
               }}
             />
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               size="icon"
               className="bg-indigo-500 hover:bg-indigo-600 text-white h-12 w-12"
               disabled={isProcessing}
@@ -500,7 +522,9 @@ export default function HyperGrantAI() {
             </Button>
           </form>
         </motion.div>
+        </>
       )}
+
 
       {/* Quantum input interface */}
       <motion.footer
