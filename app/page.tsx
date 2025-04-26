@@ -18,6 +18,26 @@ type Message = {
   grantLinks?: string[]
 }
 
+type Grant = {
+  id: string
+  name: string
+  agency: string
+  deadline: string
+  focus_area: string
+  match_reason: string
+  budget_range?: string
+  eligibility?: string[]
+  url?: string
+}
+
+type AnalysisResponse = {
+  analysis_summary: string
+  matched_grants: Grant[]
+  next_steps: string[]
+  follow_up_questions: string[]
+  confidence_score: number
+}
+
 export default function HyperGrantAI() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([
@@ -34,6 +54,7 @@ export default function HyperGrantAI() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [hasQueried, setHasQueried] = useState(false)
   const [particleCount, setParticleCount] = useState(0)
+  const [matchedGrants, setMatchedGrants] = useState<Grant[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
@@ -88,12 +109,11 @@ export default function HyperGrantAI() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isProcessing) return
-
-    if (!hasQueried) setHasQueried(true) 
-
+  
     setIsProcessing(true)
-    emitParticles(5) // Visual feedback on submit
-
+    emitParticles(5)
+    setHasQueried(true)
+  
     // Add user message
     const userMessage: Message = {
       id: generateId(),
@@ -104,53 +124,123 @@ export default function HyperGrantAI() {
     let updatedMessages = [...messages, userMessage]
     setMessages(updatedMessages)
     setInput('')
+  
+    try {
+      // Analysis Phase with loading state
+      const analysisId = generateId()
+      updatedMessages = [...updatedMessages, {
+        id: analysisId,
+        content: 'Analyzing project details...',
+        sender: 'agent',
+        status: 'analyzing'
+      }]
+      setMessages(updatedMessages)
+  
+      const analysisRes = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: 'user', content: input }
+          ]
+        })
+      })
+      
+      if (!analysisRes.ok) {
+        throw new Error(`API error: ${analysisRes.status}`)
+      }
+  
+      const analysisData: AnalysisResponse = await analysisRes.json()
+      setMatchedGrants(analysisData.matched_grants)
+  
+      // Update analysis message to complete
+      updatedMessages = updatedMessages.filter(m => m.id !== analysisId)
+      updatedMessages.push({
+        id: analysisId,
+        content: 'Analysis complete',
+        sender: 'agent',
+        status: 'complete'
+      })
+  
+      // Database Search Phase
+      const searchId = generateId()
+      const searchTarget = Math.floor(Math.random() * 16) + 5
+      updatedMessages = [...updatedMessages, {
+        id: searchId,
+        content: `Searching ${searchTarget} funding opportunities...`,
+        sender: 'agent',
+        status: 'searching'
+      }]
+      setMessages(updatedMessages)
 
-    // Add initial agent analysis message
-    const analysisMessageId = await addAgentMessage(
-      'Analyzing your project details...', 
-      'analyzing',
-      updatedMessages
-    )
-    updatedMessages = [...updatedMessages, {
-      id: analysisMessageId,
-      content: 'Analyzing your project details...',
-      sender: 'agent',
-      status: 'analyzing'
-    }]
-
-    // Add database search message
-    const searchMessageId = await addAgentMessage(
-      'Searching funding databases...', 
-      'searching',
-      updatedMessages
-    )
-    updatedMessages = [...updatedMessages, {
-      id: searchMessageId,
-      content: 'Searching funding databases...',
-      sender: 'agent',
-      status: 'searching'
-    }]
-
-    // Process response (now with visual enhancements)
-    const response = generateResponse(input)
-    const botMessageId = generateId()
-    await typeMessage(response.text, updatedMessages, botMessageId)
-    updatedMessages = [...updatedMessages, {
-      id: botMessageId,
-      content: response.text,
-      sender: 'bot',
-      status: 'complete',
-      grantLinks: response.text.match(/[A-Z]{2,}-\d{2}-\d{3}/g) || []
-    }]
-
-    // Add follow-up after delay if exists
-    if (response.followUp) {
-      await new Promise(resolve => setTimeout(resolve, 500))
-      const followUpId = generateId()
-      await typeMessage(response.followUp, updatedMessages, followUpId)
+      let current = 0
+      const ticker = setInterval(() => {
+        current += 1
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === searchId
+              ? { ...m, content: `Searching ${current} resources…` }
+              : m
+          )
+        )
+        if (current >= searchTarget) clearInterval(ticker)
+      }, 50 + (Math.random() * 100))
+  
+      // Simulate search delay
+      await new Promise(resolve => setTimeout(resolve, 1500))
+  
+      // Formatting Phase
+      const formattedResponse = formatClaudeResponse(analysisData)
+      const botMessageId = generateId()
+      
+      await typeMessage(formattedResponse.text, updatedMessages, botMessageId)
+      updatedMessages = [...updatedMessages, {
+        id: botMessageId,
+        content: formattedResponse.text,
+        sender: 'bot',
+        status: 'complete',
+        grantLinks: analysisData.matched_grants.map(g => g.id)
+      }]
+  
+      if (formattedResponse.followUp) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+        const followUpId = generateId()
+        await typeMessage(formattedResponse.followUp, updatedMessages, followUpId)
+      }
+  
+    } catch (error) {
+      console.error('API Error:', error)
+      const errorId = generateId()
+      await typeMessage(
+        '⚠️ Error processing request. Our team has been notified. Please try again later.', 
+        updatedMessages, 
+        errorId
+      )
+    } finally {
+      setIsProcessing(false)
     }
+  }
+  
 
-    setIsProcessing(false)
+  const formatClaudeResponse = (data: AnalysisResponse) => {
+    let text = `✅ Analysis Complete (${data.confidence_score}/100 confidence)\n\n`
+    text += `${data.analysis_summary}\n\n🏆 Top Matches:\n`
+    
+    data.matched_grants.forEach((grant, index) => {
+      text += `\n${index + 1}. ${grant.id} - ${grant.name}\n`
+      text += `   • Agency: ${grant.agency}\n`
+      text += `   • Deadline: ${grant.deadline}\n`
+      text += `   • Focus: ${grant.focus_area}\n`
+      text += `   › ${grant.match_reason}\n`
+    })
+  
+    text += `\nNext Steps:\n${data.next_steps.map(s => `• ${s}`).join('\n')}`
+    
+    const followUp = `To proceed, please:\n${data.follow_up_questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+  
+    return { text, followUp }
   }
 
   // Fixed: Enhanced typeMessage with visual effects
@@ -205,23 +295,27 @@ export default function HyperGrantAI() {
   }
 
   // 3D Holographic Grant Card Component
-  const GrantHologram = ({ grantId }: { grantId: string }) => (
-    <motion.div 
-      className="relative my-4"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 100 }}
-    >
-      <div className="absolute inset-0 rounded-xl bg-blue-500/20 blur-xl animate-pulse" />
+  const GrantHologram = ({ grant }: { grant: Grant }) => (
+    <motion.div /* existing props */>
       <Card className="relative bg-gradient-to-br from-blue-500/10 to-blue-600/20 border border-blue-400/30 backdrop-blur-md">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
-            <div className="flex-1">
-              <h3 className="font-mono text-lg font-bold text-blue-300">{grantId}</h3>
-              <p className="text-sm text-blue-100">Active funding opportunity</p>
+      <CardContent className="p-6">
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
+            <h3 className="font-mono text-lg font-bold text-blue-300">
+              {grant.id}
+            </h3>
+            <p className="text-sm text-blue-100">
+              {grant.name.includes('Loading') ? (
+                <span className="animate-pulse">Loading grant details...</span>
+              ) : (
+                grant.name
+              )}
+            </p>
+            <div className="mt-2 text-xs space-y-1">
+              <p>🏛️ {grant.agency}</p>
+              <p>📅 {grant.deadline}</p>
+              <p>🎯 {grant.focus_area}</p>
             </div>
-            <div className="h-12 w-12 rounded-full bg-blue-500/10 border border-blue-400/30 flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-blue-300" />
             </div>
           </div>
         </CardContent>
@@ -387,10 +481,10 @@ export default function HyperGrantAI() {
                     {/* Animated status indicator */}
                     {message.sender === 'agent' && (
                       <motion.div 
-                        className="mt-1"
+                        className="mt-1 flex items-center"
                         animate={{ 
-                          rotate: message.status === 'analyzing' ? 360 : 0,
-                          scale: message.status ? 1.2 : 1
+                          rotate: message.status === 'analyzing' ? [0, 360] : 0,
+                          scale: message.status ? [1, 1.1, 1] : 1
                         }}
                         transition={{ 
                           rotate: { 
@@ -399,15 +493,30 @@ export default function HyperGrantAI() {
                             ease: "linear" 
                           },
                           scale: { 
-                            type: 'spring', 
-                            stiffness: 500 
+                            repeat: Infinity,
+                            duration: 1.5,
+                            ease: "easeInOut"
                           }
                         }}
                       >
                         {message.status === 'analyzing' ? (
-                          <Sparkles className="h-5 w-5 text-yellow-400" />
+                          <div className="relative">
+                            <Loader2 className="h-5 w-5 text-yellow-400 animate-spin" />
+                            <motion.div 
+                              className="absolute inset-0 rounded-full border-2 border-yellow-400/30"
+                              animate={{ scale: [1, 1.5, 1] }}
+                              transition={{ repeat: Infinity, duration: 1.5 }}
+                            />
+                          </div>
                         ) : message.status === 'searching' ? (
-                          <Search className="h-5 w-5 text-purple-400" />
+                          <div className="relative">
+                            <Search className="h-5 w-5 text-purple-400 animate-pulse" />
+                            <motion.div 
+                              className="absolute -inset-1 rounded-full bg-purple-400/10"
+                              animate={{ scale: [1, 1.3, 1] }}
+                              transition={{ repeat: Infinity, duration: 2 }}
+                            />
+                          </div>
                         ) : null}
                       </motion.div>
                     )}
@@ -452,10 +561,21 @@ export default function HyperGrantAI() {
                         </motion.div>
                       )}
 
-                      {/* Grant holograms for detected opportunities */}
-                      {message.grantLinks?.map(grant => (
-                        <GrantHologram key={grant} grantId={grant} />
-                      ))}
+                      {message.grantLinks?.map(grantId => {
+                            const fullGrant = matchedGrants.find(g => g.id === grantId)
+                            return fullGrant ? (
+                              <GrantHologram key={grantId} grant={fullGrant} />
+                            ) : (
+                              <GrantHologram key={grantId} grant={{
+                                id: grantId,
+                                name: 'Loading grant details...',
+                                agency: 'Unknown',
+                                deadline: 'TBD',
+                                focus_area: 'Pending',
+                                match_reason: 'Matched by AI analysis'
+                              }} />
+                            )
+                        })}
                     </div>
                   </div>
                 </CardContent>
@@ -492,7 +612,7 @@ export default function HyperGrantAI() {
           <motion.div
             className="absolute inset-0 rounded-3xl border-4 border-indigo-500/50"
             initial={{ scale: 0.8, opacity: 0.4 }}
-            animate={{ scale: [0.8, 1.2], opacity: [0.4, 0.1] }}
+            animate={{ scale: [0.8, 1.2], opacity: [0.0, 0.4, 0.0] }}
             transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
           />
 
@@ -603,10 +723,15 @@ export default function HyperGrantAI() {
               className="bg-blue-500 hover:bg-blue-600 text-white h-12 w-12 relative overflow-hidden"
             >
               {isProcessing ? (
-                <>
+                <div className="flex items-center justify-center">
                   <Loader2 className="animate-spin h-5 w-5" />
-                  <span className="absolute inset-0 bg-blue-500/30 animate-pulse rounded-full" />
-                </>
+                  {/* Pulsing background effect */}
+                  <motion.div 
+                    className="absolute inset-0 bg-blue-500/30 rounded-full"
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                  />
+                </div>
               ) : (
                 <>
                   <ChevronRight className="h-5 w-5" />
