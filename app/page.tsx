@@ -7,82 +7,81 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ChevronRight, Loader2, Linkedin, Search, Sparkles } from 'lucide-react'
+import { motion, AnimatePresence, useScroll, useTransform, useMotionValue } from 'framer-motion'
+import { useTheme } from 'next-themes'
 
 type Message = {
   id: string
   content: string
   sender: 'user' | 'bot' | 'agent'
   status?: 'typing' | 'searching' | 'analyzing' | 'complete'
+  grantLinks?: string[]
 }
 
-export default function Component() {
+export default function HyperGrantAI() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'initial-message',
       content: 'Hello! I\'m MediGrant AI. I can help you find and apply for healthcare research funding. Tell me about your project or what kind of grant you\'re looking for.',
       sender: 'bot',
-      status: 'complete'
+      status: 'complete',
+      grantLinks: []
     }
   ])
   const [showLinkedIn, setShowLinkedIn] = useState(false)
   const [linkedInUrl, setLinkedInUrl] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [hasQueried, setHasQueried] = useState(false)
+  const [particleCount, setParticleCount] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({
+    container: containerRef
+  })
+  const { theme } = useTheme()
+  const mouseX = useMotionValue(0)
+  const mouseY = useMotionValue(0)
+  const rotateX = useTransform(mouseY, [ -100, 100 ], [ 5, -5 ])
+  const rotateY = useTransform(mouseX, [ -100, 100 ], [ -5, 5 ])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  // attach to container
+  const handlePointerMove = (e: React.PointerEvent) => {
+    const { innerWidth, innerHeight } = window
+    mouseX.set(e.clientX - innerWidth / 2)
+    mouseY.set(e.clientY - innerHeight / 2)
   }
 
   useEffect(() => {
-    scrollToBottom()
+    messagesEndRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'end',
+    })
   }, [messages])
+
+  // Dynamic background gradient based on scroll
+  const bgGradient = useTransform(
+    scrollYProgress,
+    [0, 1],
+    ['radial-gradient(circle at 50% 0%, rgba(15,23,42,0.8) 0%, rgba(2,6,23,1) 100%)', 'radial-gradient(circle at 50% 100%, rgba(30,58,138,0.6) 0%, rgba(2,6,23,1) 100%)']
+  )
 
   const generateId = () => `${Date.now()}-${Math.floor(Math.random() * 10000)}`
 
-  const addAgentMessage = async (content: string, status: Message['status'], existingMessages: Message[]) => {
-    const agentMessageId = generateId()
-    const agentMessage: Message = {
-      id: agentMessageId,
-      content,
-      sender: 'agent',
-      status
-    }
-    
-    setMessages([...existingMessages, agentMessage])
-    await new Promise(resolve => setTimeout(resolve, 5000)) // Minimum processing time
-    return agentMessageId
-  }
-
-  const typeMessage = async (message: string, existingMessages: Message[], messageId: string) => {
-    let typedContent = ''
-    setMessages([...existingMessages, {
-      id: messageId,
-      content: '',
-      sender: 'bot',
-      status: 'typing'
-    }])
-    
-    for (let i = 0; i < message.length; i++) {
-      typedContent += message[i]
-      setMessages(prev => {
-        const prevWithoutTyping = prev.filter(m => m.id !== messageId || m.status !== 'typing')
-        return [...prevWithoutTyping, {
-          id: messageId,
-          content: typedContent,
-          sender: 'bot',
-          status: i === message.length - 1 ? 'complete' : 'typing'
-        }]
-      })
-      await new Promise(resolve => setTimeout(resolve, 5))
-    }
+  // Particle emitter for grant mentions
+  const emitParticles = (count: number) => {
+    setParticleCount(count)
+    setTimeout(() => setParticleCount(0), 3000)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isProcessing) return
 
+    if (!hasQueried) setHasQueried(true) 
+
     setIsProcessing(true)
+    emitParticles(5) // Visual feedback on submit
 
     // Add user message
     const userMessage: Message = {
@@ -105,7 +104,7 @@ export default function Component() {
       id: analysisMessageId,
       content: 'Analyzing your project details...',
       sender: 'agent',
-      status: 'complete'
+      status: 'analyzing'
     }]
 
     // Add database search message
@@ -118,28 +117,106 @@ export default function Component() {
       id: searchMessageId,
       content: 'Searching funding databases...',
       sender: 'agent',
-      status: 'complete'
+      status: 'searching'
     }]
 
-    // Add initial bot response
+    // Process response (now with visual enhancements)
     const response = generateResponse(input)
     const botMessageId = generateId()
     await typeMessage(response.text, updatedMessages, botMessageId)
+    updatedMessages = [...updatedMessages, {
+      id: botMessageId,
+      content: response.text,
+      sender: 'bot',
+      status: 'complete',
+      grantLinks: response.text.match(/[A-Z]{2,}-\d{2}-\d{3}/g) || []
+    }]
 
     // Add follow-up after delay if exists
     if (response.followUp) {
-      await new Promise(resolve => setTimeout(resolve, 5000))
+      await new Promise(resolve => setTimeout(resolve, 500))
       const followUpId = generateId()
-      await typeMessage(response.followUp, [...updatedMessages, {
-        id: botMessageId,
-        content: response.text,
-        sender: 'bot',
-        status: 'complete'
-      }], followUpId)
+      await typeMessage(response.followUp, updatedMessages, followUpId)
     }
 
     setIsProcessing(false)
   }
+
+  // Fixed: Enhanced typeMessage with visual effects
+  const typeMessage = async (message: string, existingMessages: Message[], messageId: string) => {
+    let typedContent = ''
+    setMessages([...existingMessages, {
+      id: messageId,
+      content: '',
+      sender: 'bot',
+      status: 'typing'
+    }])
+    
+    for (let i = 0; i < message.length; i++) {
+      typedContent += message[i]
+      setMessages(prev => {
+        const prevWithoutTyping = prev.filter(m => m.id !== messageId || m.status !== 'typing')
+        return [...prevWithoutTyping, {
+          id: messageId,
+          content: typedContent,
+          sender: 'bot',
+          status: i === message.length - 1 ? 'complete' : 'typing',
+          grantLinks: typedContent.match(/[A-Z]{2,}-\d{2}-\d{3}/g) || []
+        }]
+      })
+      
+      // Enhanced typing effects
+      const char = message[i]
+      if (char.match(/[A-Z]{2,}-\d{2}-\d{3}/)) {
+        emitParticles(8)
+        await new Promise(resolve => setTimeout(resolve, 5)) // Pause for emphasis
+      } else if (char.match(/[.!?]/)) {
+        await new Promise(resolve => setTimeout(resolve, 15)) // Natural pause
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 1)) // Human-like variation
+      }
+    }
+  }
+
+  // Fixed: Implement addAgentMessage
+  const addAgentMessage = async (content: string, status: Message['status'], existingMessages: Message[]) => {
+    const agentMessageId = generateId()
+    const agentMessage: Message = {
+      id: agentMessageId,
+      content,
+      sender: 'agent',
+      status
+    }
+    
+    setMessages([...existingMessages, agentMessage])
+    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 2000)) // Variable processing time
+    return agentMessageId
+  }
+
+  // 3D Holographic Grant Card Component
+  const GrantHologram = ({ grantId }: { grantId: string }) => (
+    <motion.div 
+      className="relative my-4"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 100 }}
+    >
+      <div className="absolute inset-0 rounded-xl bg-blue-500/20 blur-xl animate-pulse" />
+      <Card className="relative bg-gradient-to-br from-blue-500/10 to-blue-600/20 border border-blue-400/30 backdrop-blur-md">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex-1">
+              <h3 className="font-mono text-lg font-bold text-blue-300">{grantId}</h3>
+              <p className="text-sm text-blue-100">Active funding opportunity</p>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-blue-500/10 border border-blue-400/30 flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-blue-300" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
 
   const generateResponse = (userInput: string) => {
     const lowerInput = userInput.toLowerCase()
@@ -190,78 +267,256 @@ export default function Component() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-950 text-white font-sans">
-      <header className="py-4 px-6 border-b border-blue-400 border-opacity-20">
-        <h1 className="text-4xl font-bold text-white tracking-tighter">MediGrant AI</h1>
-        <p className="text-sm text-gray-400">
-          Your AI co-pilot for healthcare research funding
-        </p>
-      </header>
-
-      <main className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-gray-950 to-gray-950/80">
-        {messages.map((message) => (
-          <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <Card 
-              className={`max-w-3xl backdrop-blur-md ${
-                message.sender === 'user' 
-                  ? 'bg-blue-400/20 border-blue-400 shadow-blue-400/10' 
-                  : message.sender === 'agent'
-                    ? 'bg-purple-500/10 border-purple-400 shadow-purple-400/10'
-                    : 'bg-gray-950/60 border-blue-400'
-              }`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start gap-2">
-                  {message.sender === 'agent' && message.status === 'analyzing' && (
-                    <div className="pt-1">
-                      <Sparkles className="h-4 w-4 text-yellow-400 animate-pulse" />
-                    </div>
-                  )}
-                  {message.sender === 'agent' && message.status === 'searching' && (
-                    <div className="pt-1">
-                      <Search className="h-4 w-4 text-purple-400 animate-pulse" />
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <div className="whitespace-pre-line text-white">
-                      {message.content}
-                    </div>
-                    {message.status === 'typing' && (
-                      <div className="flex space-x-2 mt-2">
-                        {[0, 0.2, 0.4].map((delay) => (
-                          <div 
-                            key={delay}
-                            className="w-2 h-2 rounded-full bg-blue-400 animate-bounce"
-                            style={{ animationDelay: `${delay}s` }}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    {message.sender === 'agent' && message.status === 'analyzing' && (
-                      <div className="flex items-center gap-2 mt-2 text-yellow-300 text-sm">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>Reviewing project details and research objectives...</span>
-                      </div>
-                    )}
-                    {message.sender === 'agent' && message.status === 'searching' && (
-                      <div className="flex items-center gap-2 mt-2 text-purple-300 text-sm">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>Querying NIH RePORTER, Grants.gov, and Foundation Directory...</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+    <motion.div 
+      className="flex flex-col h-screen text-white font-sans"
+      style={{ background: bgGradient }}
+      onPointerMove={handlePointerMove}
+      ref={containerRef}
+    >
+      {/* Neuro-reactive header */}
+      <motion.header 
+        className="py-4 px-6 border-b border-blue-400/20 backdrop-blur-lg"
+        initial={{ y: -20 }}
+        animate={{ y: 0 }}
+        transition={{ type: 'spring', damping: 10 }}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-blue-500 tracking-tighter">
+              MediGrant AI
+            </h1>
+            <p className="text-sm text-blue-200/80">
+              Your AI co-pilot for healthcare research funding
+            </p>
           </div>
+          <div className="flex gap-2">
+            <motion.div 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setShowLinkedIn(!showLinkedIn)}
+                className="text-blue-300 border border-blue-400/30"
+              >
+                <Linkedin className="h-4 w-4 mr-2" />
+                {showLinkedIn ? 'Hide' : 'Connect'}
+              </Button>
+            </motion.div>
+          </div>
+        </div>
+      </motion.header>
+
+      {/* Quantum message interface */}
+      <main className="flex-1 overflow-y-auto pt-6 px-6 pb-0 space-y-6 relative overscroll-none">
+        {/* Floating grant particles */}
+        <AnimatePresence>
+          {Array.from({ length: particleCount }).map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute rounded-full bg-blue-400/80 pointer-events-none"
+              initial={{ 
+                x: Math.random() * window.innerWidth - 100,
+                y: 0,
+                opacity: 1,
+                scale: 0.5
+              }}
+              animate={{ 
+                y: -100,
+                opacity: 0,
+                scale: 1.5,
+                x: Math.random() * 200 - 100
+              }}
+              transition={{ 
+                duration: 2,
+                ease: "easeOut"
+              }}
+              style={{
+                width: Math.random() * 8 + 4,
+                height: Math.random() * 8 + 4
+              }}
+            />
+          ))}
+        </AnimatePresence>
+
+        {messages.map((message) => (
+          <motion.div 
+          key={message.id}
+            className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 300 }}
+          >
+            <motion.div
+              whileHover={{ scale: message.sender === 'bot' ? 1.01 : 1 }}
+            >
+              <Card 
+                className={`max-w-3xl backdrop-blur-lg relative overflow-hidden ${
+                  message.sender === 'user' 
+                    ? 'bg-blue-500/10 border-blue-400/30 shadow-[0_0_30px_-10px_rgba(96,165,250,0.3)]' 
+                    : message.sender === 'agent'
+                      ? 'bg-purple-500/10 border-purple-400/30 shadow-[0_0_30px_-10px_rgba(168,85,247,0.3)]'
+                      : 'bg-gray-900/60 border-blue-400/30 shadow-[0_0_30px_-10px_rgba(59,130,246,0.2)]'
+                }`}
+              >
+                {/* Animated border glow */}
+                <div className={`absolute inset-0 rounded-lg pointer-events-none ${
+                  message.status === 'typing' 
+                    ? 'animate-pulse bg-blue-500/10' 
+                    : message.status === 'analyzing'
+                      ? 'bg-yellow-500/10'
+                      : 'bg-transparent'
+                }`} />
+                
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    {/* Animated status indicator */}
+                    {message.sender === 'agent' && (
+                      <motion.div 
+                        className="mt-1"
+                        animate={{ 
+                          rotate: message.status === 'analyzing' ? 360 : 0,
+                          scale: message.status ? 1.2 : 1
+                        }}
+                        transition={{ 
+                          rotate: { 
+                            repeat: Infinity, 
+                            duration: 2, 
+                            ease: "linear" 
+                          },
+                          scale: { 
+                            type: 'spring', 
+                            stiffness: 500 
+                          }
+                        }}
+                      >
+                        {message.status === 'analyzing' ? (
+                          <Sparkles className="h-5 w-5 text-yellow-400" />
+                        ) : message.status === 'searching' ? (
+                          <Search className="h-5 w-5 text-purple-400" />
+                        ) : null}
+                      </motion.div>
+                    )}
+                    
+                    <div className="flex-1">
+                      {/* Message content with grant highlighting */}
+                      <div className="whitespace-pre-line text-gray-100">
+                        {message.content.split(/([A-Z]{2,}-\d{2}-\d{3})/).map((part, i) => 
+                          part.match(/[A-Z]{2,}-\d{2}-\d{3}/) ? (
+                            <span 
+                              key={i} 
+                              className="font-mono text-blue-300 bg-blue-900/30 px-1 py-0.5 rounded hover:bg-blue-800/40 cursor-pointer transition-colors"
+                              onClick={() => emitParticles(12)}
+                            >
+                              {part}
+                            </span>
+                          ) : (
+                            part
+                          )
+                        )}
+                      </div>
+
+                      {/* Dynamic typing indicator */}
+                      {message.status === 'typing' && (
+                        <motion.div 
+                          className="flex space-x-2 mt-4"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                        >
+                          {[0, 0.2, 0.4].map((delay) => (
+                            <motion.div 
+                              key={delay}
+                              className="w-2 h-2 rounded-full bg-blue-400"
+                              animate={{ y: [0, -10, 0] }}
+                              transition={{ 
+                                repeat: Infinity,
+                                duration: 1,
+                                delay
+                              }}
+                            />
+                          ))}
+                        </motion.div>
+                      )}
+
+                      {/* Grant holograms for detected opportunities */}
+                      {message.grantLinks?.map(grant => (
+                        <GrantHologram key={grant} grantId={grant} />
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
         ))}
         <div ref={messagesEndRef} />
       </main>
 
-      <footer className="border-t border-blue-400/20 p-4 backdrop-blur-md bg-gray-950/70">
+      {!hasQueried && (
+        <motion.div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
+                     p-6 bg-gradient-to-br from-blue-950/50 to-black/80
+                     rounded-3xl backdrop-blur-xl shadow-[0_0_60px_20px_rgba(59,130,246,0.4)]
+                     pointer-events-auto
+                     w-[80vw] max-w-[800px]
+                     "
+          style={{ rotateX, rotateY }}
+          initial={{ opacity: 0, scale: 0.6, rotateZ: 10 }}
+          animate={{ opacity: 1, scale: 1, rotateZ: 0 }}
+          transition={{ type: 'spring', stiffness: 180, damping: 12 }}
+          whileHover={{ scale: 1.05 }}
+        >
+          {/* pulsing neon ring behind */}
+          <motion.div
+            className="absolute inset-0 rounded-3xl border-4 border-indigo-500/50"
+            initial={{ scale: 0.8, opacity: 0.4 }}
+            animate={{ scale: [0.8, 1.2], opacity: [0.4, 0.1] }}
+            transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+          />
+          <form onSubmit={handleSubmit} className="relative flex gap-3">
+            <Textarea
+              className="w-full bg-transparent border border-indigo-400/50
+                         text-white placeholder-indigo-200 focus:ring-2
+                         focus:ring-indigo-500 focus:ring-offset-0 resize-none"
+              placeholder="Describe your research project…"
+              rows={2}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSubmit(e)
+                }
+              }}
+            />
+            <Button 
+              type="submit" 
+              size="icon"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white h-12 w-12"
+              disabled={isProcessing}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </form>
+        </motion.div>
+      )}
+
+      {/* Quantum input interface */}
+      <motion.footer
+        className="border-t border-blue-400/20 p-4 backdrop-blur-lg bg-gray-900/50"
+        initial={{ opacity: 0, height: 0 }}
+       animate={{ opacity: hasQueried ? 1 : 0, height: hasQueried ? 'auto' : 0 }}
+        transition={{ type: 'spring', stiffness: 120, damping: 14 }}
+      >
         {showLinkedIn && (
-          <div className="mb-4">
-            <Label htmlFor="linkedin" className="text-gray-400">
+          <motion.div 
+            className="mb-4"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <Label htmlFor="linkedin" className="text-blue-200/80 mb-2 block">
               LinkedIn Profile (Optional)
             </Label>
             <div className="flex gap-2">
@@ -270,57 +525,89 @@ export default function Component() {
                 placeholder="https://linkedin.com/in/yourprofile"
                 value={linkedInUrl}
                 onChange={(e) => setLinkedInUrl(e.target.value)}
-                className="focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent bg-gray-400/10 border-gray-400 text-white outline-none shadow-[0_0_0_1px] shadow-gray-400"
+                className="bg-gray-800/50 border-gray-700 text-white focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-950"
               />
               <Button 
                 variant="outline" 
                 onClick={() => setShowLinkedIn(false)}
-                className="border-gray-400 text-white"
+                className="border-gray-700 text-white hover:bg-gray-800/50"
               >
                 Skip
               </Button>
             </div>
-          </div>
+          </motion.div>
         )}
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Textarea
-            className="flex-1 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent bg-gray-400/10 border-gray-400 text-white outline-none shadow-[0_0_0_1px] shadow-gray-400"
-            placeholder="Tell me about your project or funding needs..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSubmit(e)
-              }
-            }}
-          />
-          <Button 
-            type="submit" 
-            size="icon" 
-            disabled={isProcessing}
-            className="bg-blue-400 text-gray-950 hover:bg-blue-500"
+
+        <form onSubmit={handleSubmit} className="flex gap-3">
+          <motion.div 
+            className="flex-1 relative"
+            whileHover={{ scale: 1.005 }}
           >
-            {isProcessing ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <ChevronRight />
-            )}
-          </Button>
+            <Textarea
+              className="w-full bg-gray-800/50 border-gray-700 text-white focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-950 pr-12 resize-none"
+              placeholder="Describe your research project or funding needs..."
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSubmit(e)
+                }
+              }}
+            />
+            <div className="absolute right-3 bottom-3 flex gap-1">
+              <motion.button 
+                type="button"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="text-gray-400 hover:text-blue-400 transition-colors"
+              >
+                <Sparkles className="h-4 w-4" />
+              </motion.button>
+            </div>
+          </motion.div>
+          
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Button 
+              type="submit" 
+              size="icon" 
+              disabled={isProcessing}
+              className="bg-blue-500 hover:bg-blue-600 text-white h-12 w-12 relative overflow-hidden"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="animate-spin h-5 w-5" />
+                  <span className="absolute inset-0 bg-blue-500/30 animate-pulse rounded-full" />
+                </>
+              ) : (
+                <>
+                  <ChevronRight className="h-5 w-5" />
+                  <span className="absolute inset-0 bg-blue-400/20 hover:bg-blue-400/30 transition-colors rounded-full" />
+                </>
+              )}
+            </Button>
+          </motion.div>
         </form>
-        <div className="mt-2 text-xs flex justify-between">
-          <span className="text-gray-400">
-            MediGrant AI uses the Grants.gov API and other funding databases
+
+        <div className="mt-3 text-xs flex justify-between items-center">
+          <span className="text-blue-200/60">
+            Powered by Grants.gov API • NSF Database • NIH RePORTER
           </span>
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setShowLinkedIn(!showLinkedIn)} 
-            className="flex items-center gap-1 text-blue-400"
+            className="text-blue-300/80 hover:text-blue-400 flex items-center gap-1 text-xs"
           >
             <Linkedin className="h-3 w-3" />
-            {showLinkedIn ? 'Hide LinkedIn' : 'Connect LinkedIn'}
-          </button>
+            {showLinkedIn ? 'Hide LinkedIn' : 'Connect Profile'}
+          </motion.button>
         </div>
-      </footer>
-    </div>
+      </motion.footer>
+    </motion.div>
   )
 }
