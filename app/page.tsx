@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ChevronRight, Loader2, Linkedin, Search, Sparkles } from 'lucide-react'
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue } from 'framer-motion'
-import { useTheme } from 'next-themes'
 
 type Message = {
   id: string
@@ -53,7 +52,6 @@ export default function HyperGrantAI() {
   ])
   const [showLinkedIn, setShowLinkedIn] = useState(false)
   const [linkedInUrl, setLinkedInUrl] = useState('')
-  const [isScraping, setIsScraping] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [hasQueried, setHasQueried] = useState(false)
   const [particleCount, setParticleCount] = useState(0)
@@ -244,7 +242,7 @@ export default function HyperGrantAI() {
   
     // ---------- summary ----------
     let text =
-      `✅ Analysis Complete (${Math.round((data.confidence_score || 0) * 100)}/100 confidence)\n\n` +
+      `✅ Analysis Complete\n\n` +
       `${data.analysis_summary || 'No summary available.'}\n\n`
   
     // ---------- grants ----------
@@ -268,7 +266,7 @@ export default function HyperGrantAI() {
     }
   
     // ---------- optional follow-ups ----------
-    let followUp = data.follow_up_questions?.length
+    const followUp = data.follow_up_questions?.length
       ? `To proceed:\n${data.follow_up_questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
       : "How would you like to proceed with this information?"
   
@@ -311,21 +309,6 @@ export default function HyperGrantAI() {
     }
   }
 
-  // Fixed: Implement addAgentMessage
-  const addAgentMessage = async (content: string, status: Message['status'], existingMessages: Message[]) => {
-    const agentMessageId = generateId()
-    const agentMessage: Message = {
-      id: agentMessageId,
-      content,
-      sender: 'agent',
-      status
-    }
-    
-    setMessages([...existingMessages, agentMessage])
-    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 2000)) // Variable processing time
-    return agentMessageId
-  }
-
   // 3D Holographic Grant Card Component
   const GrantHologram = ({ grant }: { grant: Grant }) => (
     <motion.div /* existing props */>
@@ -363,59 +346,6 @@ export default function HyperGrantAI() {
       </Card>
     </motion.div>
   )
-
-  const generateResponse = (userInput: string) => {
-    const lowerInput = userInput.toLowerCase()
-    let text = ''
-    let followUp = ''
-
-    if (lowerInput.includes('nih') || lowerInput.includes('stem cell')) {
-      text = `✅ Analysis complete. Here are tailored NIH opportunities for stem cell research:\n\n` +
-        `🔬 **RFA-HL-25-001**: Stem Cell Therapies for Heart Disease\n` +
-        `   • Deadline: November 15, 2024\n` +
-        `   • Focus: Translational research\n` +
-        `   • Budget: Up to $500k/year\n\n` +
-        `🧫 **PAR-23-123**: Basic Stem Cell Differentiation\n` +
-        `   • Rolling submissions\n` +
-        `   • Ideal for early-stage projects\n\n` +
-        `I've prepared a draft Specific Aims page for your review.`
-      followUp = `Would you like me to:\n` +
-        `1. Show the draft Specific Aims page\n` +
-        `2. Help with budget justification\n` +
-        `3. Find collaborators in this field\n` +
-        `4. Set up deadline reminders?`
-    } else if (lowerInput.includes('sbir') || lowerInput.includes('sttr')) {
-      text = `✅ Analysis complete. Relevant SBIR/STTR opportunities:\n\n` +
-        `💡 **NIH SBIR R43/R44**: Phase I/II grants\n` +
-        `   • Next deadline: June 5, 2024\n` +
-        `   • Commercial focus required\n\n` +
-        `⚙️ **NSF SBIR**: Technology development\n` +
-        `   • Quarterly deadlines\n` +
-        `   • Strong IP position preferred\n\n` +
-        `I can help structure your: \n` +
-        `• Commercialization plan\n` +
-        `• Technical approach\n` +
-        `• Budget justification`
-      followUp = `Which aspect would you like to focus on first?`
-    } else {
-      text = `✅ Analysis complete. Recommended search strategy:\n\n` +
-        `1. Grants.gov database (all federal opportunities)\n` +
-        `2. Foundation Directory Online (private funders)\n` +
-        `3. Institutional research development offices\n\n` +
-        `To refine my search, could you share:\n` +
-        `• Project phase (basic/translational/clinical)\n` +
-        `• Required budget range\n` +
-        `• Any preliminary data?`
-      followUp = `Should I start with federal grants or private foundations?`
-    }
-
-    // Ensure there's always a follow-up question
-    if (!followUp) {
-      followUp = "How would you like to proceed with this information?"
-    }
-
-    return { text, followUp }
-  }
 
   return (
     <motion.div 
@@ -650,7 +580,6 @@ export default function HyperGrantAI() {
           transition={{ type: 'spring', stiffness: 180, damping: 12 }}
           whileHover={{ scale: 1.05 }}
         >
-          {/* pulsing neon ring behind */}
           <motion.div
             className="absolute inset-0 rounded-3xl border-4 border-indigo-500/50"
             initial={{ scale: 0.8, opacity: 0.4 }}
@@ -658,29 +587,39 @@ export default function HyperGrantAI() {
             transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
           />
 
-          <form onSubmit={handleSubmit} className="relative flex flex-col gap-4">
-            {/* LinkedIn Input Field */}
-            { showLinkedIn && (
-            <div className="space-y-2">
-              <Label htmlFor="linkedin" className="text-indigo-200/80">
-                LinkedIn Profile (Optional)
-              </Label>
-              <Input
-                id="linkedin"
-                placeholder="https://linkedin.com/in/yourprofile"
-                value={linkedInUrl}
-                onChange={(e) => setLinkedInUrl(e.target.value)}
-                className="bg-gray-800/50 border-gray-700 text-white focus:ring-2 
-                          focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-gray-950"
-              />
-            </div>
+          <form onSubmit={handleSubmit} className="relative flex flex-col gap-6">
+            {/* animated typed header */}
+            {typedHeader && (
+              <motion.h2
+                className="text-3xl font-semibold text-center text-white"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                {typedHeader}
+              </motion.h2>
             )}
 
-            {/* Main Project Description Input */}
+            {showLinkedIn && (
+              <div className="space-y-2">
+                <Label htmlFor="linkedin" className="text-indigo-200/80">
+                  LinkedIn Profile (Optional)
+                </Label>
+                <Input
+                  id="linkedin"
+                  placeholder="https://linkedin.com/in/yourprofile"
+                  value={linkedInUrl}
+                  onChange={e => setLinkedInUrl(e.target.value)}
+                  className="bg-gray-800/50 border-gray-700 text-white focus:ring-2 
+                            focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-gray-950"
+                />
+              </div>
+            )}
+
             <Textarea
               className="w-full bg-transparent border border-indigo-400/50
-                      text-white placeholder-indigo-200 focus:ring-2
-                      focus:ring-indigo-500 focus:ring-offset-0 resize-none"
+                        text-white placeholder-indigo-200 focus:ring-2
+                        focus:ring-indigo-500 focus:ring-offset-0 resize-none"
               placeholder="Describe your research project…"
               rows={4}
               value={input}
@@ -695,21 +634,15 @@ export default function HyperGrantAI() {
 
             <Button
               type="submit"
-              className="bg-indigo-500 hover:bg-indigo-600 text-white h-12 w-full cursor-pointer"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white h-12 w-full"
               disabled={isProcessing}
             >
-              {isProcessing ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <>
-                  Analyze Project
-                  <ChevronRight className="h-5 w-5 ml-2" />
-                </>
-              )}
+              {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Analyze Project'}
             </Button>
           </form>
         </motion.div>
       )}
+
 
 
       {/* Quantum input interface */}
