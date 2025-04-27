@@ -100,7 +100,7 @@ Respond using this exact structure:
 No exceptions.`
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307',
+      model: 'claude-3-7-sonnet-20250219',
       max_tokens: 4000,
       system: systemPrompt,
       messages: userMessages.map((msg: { role: string; content: string }) => ({
