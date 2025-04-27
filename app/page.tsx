@@ -591,7 +591,7 @@ export default function HyperGrantAI() {
             {/* animated typed header */}
             {typedHeader && (
               <motion.h2
-                className="text-3xl font-semibold text-center text-white"
+                className="text-3xl font-bold text-center text-white tracking-tighter"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
