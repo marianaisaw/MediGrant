@@ -19,6 +19,8 @@ type Message = {
 }
 
 type Grant = {
+  grant_name: string
+  description: string
   id: string
   name: string
   agency: string
@@ -32,9 +34,9 @@ type Grant = {
 
 type AnalysisResponse = {
   analysis_summary: string
-  matched_grants: Grant[]
+  matched_grants: (Grant | string)[]   // <── widened
   next_steps: string[]
-  follow_up_questions: string[]
+  follow_up_questions?: string[]       // <── now optional
   confidence_score: number
 }
 
@@ -51,16 +53,16 @@ export default function HyperGrantAI() {
   ])
   const [showLinkedIn, setShowLinkedIn] = useState(false)
   const [linkedInUrl, setLinkedInUrl] = useState('')
+  const [isScraping, setIsScraping] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [hasQueried, setHasQueried] = useState(false)
   const [particleCount, setParticleCount] = useState(0)
-  const [matchedGrants, setMatchedGrants] = useState<Grant[]>([])
+  const [matchedGrants, setMatchedGrants] = useState<(Grant | string)[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     container: containerRef
   })
-  const { theme } = useTheme()
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
   const rotateX = useTransform(mouseY, [ -100, 100 ], [ 5, -5 ])
@@ -126,6 +128,16 @@ export default function HyperGrantAI() {
     setInput('')
   
     try {
+      if (linkedInUrl) {
+        const scrapingId = generateId()
+        updatedMessages = [...updatedMessages, {
+          id: scrapingId,
+          content: `🔍 Analyzing LinkedIn profile...`,
+          sender: 'agent',
+          status: 'searching'
+        }]
+        setMessages(updatedMessages)
+      }
       // Analysis Phase with loading state
       const analysisId = generateId()
       updatedMessages = [...updatedMessages, {
@@ -142,9 +154,8 @@ export default function HyperGrantAI() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: [
-            { role: 'user', content: input }
-          ]
+          messages: [{ role: 'user', content: input }],
+          linkedInUrl: linkedInUrl 
         })
       })
       
@@ -201,14 +212,13 @@ export default function HyperGrantAI() {
         content: formattedResponse.text,
         sender: 'bot',
         status: 'complete',
-        grantLinks: analysisData.matched_grants.map(g => g.id)
+        grantLinks: analysisData.matched_grants.map(g => typeof g === 'string' ? `GRANT-${Math.random().toString(36).substring(2, 8)}` : g.id)
       }]
   
-      if (formattedResponse.followUp) {
-        await new Promise(resolve => setTimeout(resolve, 500))
-        const followUpId = generateId()
-        await typeMessage(formattedResponse.followUp, updatedMessages, followUpId)
-      }
+      // Always display follow-up questions
+      await new Promise(resolve => setTimeout(resolve, 500))
+      const followUpId = generateId()
+      await typeMessage(formattedResponse.followUp, updatedMessages, followUpId)
   
     } catch (error) {
       console.error('API Error:', error)
@@ -225,23 +235,45 @@ export default function HyperGrantAI() {
   
 
   const formatClaudeResponse = (data: AnalysisResponse) => {
-    let text = `✅ Analysis Complete (${data.confidence_score}/100 confidence)\n\n`
-    text += `${data.analysis_summary}\n\n🏆 Top Matches:\n`
-    
-    data.matched_grants.forEach((grant, index) => {
-      text += `\n${index + 1}. ${grant.id} - ${grant.name}\n`
-      text += `   • Agency: ${grant.agency}\n`
-      text += `   • Deadline: ${grant.deadline}\n`
-      text += `   • Focus: ${grant.focus_area}\n`
-      text += `   › ${grant.match_reason}\n`
+    if (!data) {
+      return {
+        text: "⚠️ No analysis data was returned. Please try again.",
+        followUp: "Would you like to retry your query?"
+      }
+    }
+  
+    // ---------- summary ----------
+    let text =
+      `✅ Analysis Complete (${Math.round((data.confidence_score || 0) * 100)}/100 confidence)\n\n` +
+      `${data.analysis_summary || 'No summary available.'}\n\n`
+  
+    // ---------- grants ----------
+    data.matched_grants.forEach((g, i) => {
+      // Accept either a Grant object or a plain string
+      const grant = typeof g === 'string'
+        ? { id: `GRANT-${i+1}`, name: g, agency: '—', deadline: '—', focus_area: '—', match_reason: '' }
+        : g
+  
+      text +=
+        `\n${i + 1}. ${grant.id} - ${grant.name}\n` +
+        `   • Agency: ${grant.agency}\n` +
+        `   • Deadline: ${grant.deadline}\n` +
+        `   • Focus: ${grant.focus_area}\n` +
+        (grant.match_reason ? `   › ${grant.match_reason}\n` : '')
     })
   
-    text += `\nNext Steps:\n${data.next_steps.map(s => `• ${s}`).join('\n')}`
-    
-    const followUp = `To proceed, please:\n${data.follow_up_questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+    // ---------- next steps ----------
+    if (data.next_steps?.length) {
+      text += `\nNext Steps:\n${data.next_steps.map(s => `• ${s}`).join('\n')}`
+    }
+  
+    // ---------- optional follow-ups ----------
+    let followUp = data.follow_up_questions?.length
+      ? `To proceed:\n${data.follow_up_questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+      : "How would you like to proceed with this information?"
   
     return { text, followUp }
-  }
+  }  
 
   // Fixed: Enhanced typeMessage with visual effects
   const typeMessage = async (message: string, existingMessages: Message[], messageId: string) => {
@@ -300,21 +332,30 @@ export default function HyperGrantAI() {
       <Card className="relative bg-gradient-to-br from-blue-500/10 to-blue-600/20 border border-blue-400/30 backdrop-blur-md">
       <CardContent className="p-6">
         <div className="flex items-start gap-4">
-          <div className="flex-1">
+          <div className="flex-1 text-white">
             <h3 className="font-mono text-lg font-bold text-blue-300">
-              {grant.id}
+              {grant.id || 'ID-TBD'}
             </h3>
             <p className="text-sm text-blue-100">
-              {grant.name.includes('Loading') ? (
+              {grant.name && grant.name.includes('Loading') ? (
                 <span className="animate-pulse">Loading grant details...</span>
               ) : (
-                grant.name
+                grant.name || 'Unnamed Grant'
               )}
             </p>
-            <div className="mt-2 text-xs space-y-1">
-              <p>🏛️ {grant.agency}</p>
-              <p>📅 {grant.deadline}</p>
-              <p>🎯 {grant.focus_area}</p>
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2 bg-blue-900/30 p-2 rounded-md border-l-4 border-blue-400">
+                <div className="text-blue-300 font-bold">🏛️ Agency:</div>
+                <div className="text-white font-medium">{grant.agency || 'Agency TBD'}</div>
+              </div>
+              <div className="flex items-center gap-2 bg-purple-900/30 p-2 rounded-md border-l-4 border-purple-400">
+                <div className="text-purple-300 font-bold">📅 Deadline:</div>
+                <div className="text-white font-medium">{grant.deadline || 'Deadline TBD'}</div>
+              </div>
+              <div className="flex items-center gap-2 bg-emerald-900/30 p-2 rounded-md border-l-4 border-emerald-400">
+                <div className="text-emerald-300 font-bold">🎯 Focus:</div>
+                <div className="text-white font-medium">{grant.focus_area || 'Focus area TBD'}</div>
+              </div>
             </div>
             </div>
           </div>
@@ -366,6 +407,11 @@ export default function HyperGrantAI() {
         `• Required budget range\n` +
         `• Any preliminary data?`
       followUp = `Should I start with federal grants or private foundations?`
+    }
+
+    // Ensure there's always a follow-up question
+    if (!followUp) {
+      followUp = "How would you like to proceed with this information?"
     }
 
     return { text, followUp }
@@ -527,14 +573,14 @@ export default function HyperGrantAI() {
                         {message.content.split(/([A-Z]{2,}-\d{2}-\d{3})/).map((part, i) => 
                           part.match(/[A-Z]{2,}-\d{2}-\d{3}/) ? (
                             <span 
-                              key={i} 
+                              key={`highlight-${i}`} 
                               className="font-mono text-blue-300 bg-blue-900/30 px-1 py-0.5 rounded hover:bg-blue-800/40 cursor-pointer transition-colors"
                               onClick={() => emitParticles(12)}
                             >
                               {part}
                             </span>
                           ) : (
-                            part
+                            <span key={`text-${i}`}>{part}</span>
                           )
                         )}
                       </div>
@@ -562,14 +608,18 @@ export default function HyperGrantAI() {
                       )}
 
                       {message.grantLinks?.map(grantId => {
-                            const fullGrant = matchedGrants.find(g => g.id === grantId)
-                            return fullGrant ? (
+                            const fullGrant = matchedGrants.find(g => 
+                              typeof g === 'string' ? false : g.id === grantId
+                            )
+                            return fullGrant && typeof fullGrant !== 'string' ? (
                               <GrantHologram key={grantId} grant={fullGrant} />
                             ) : (
                               <GrantHologram key={grantId} grant={{
                                 id: grantId,
+                                grant_name: 'Loading grant details...',
                                 name: 'Loading grant details...',
                                 agency: 'Unknown',
+                                description: 'Grant details are being loaded...',
                                 deadline: 'TBD',
                                 focus_area: 'Pending',
                                 match_reason: 'Matched by AI analysis'
@@ -588,20 +638,12 @@ export default function HyperGrantAI() {
       </main>
 
       {!hasQueried && (
-        <>
-        <h2 className="text-center text-4xl font-semibold text-white mb-[12em] tracking-tight">
-            {typedHeader}
-            {/* 2. Blinking cursor */}
-            {typedHeader.length < headerFullText.length && (
-              <span className="inline-block w-[1ch] h-8 bg-white ml-1 animate-pulse" />
-            )}
-          </h2>
         <motion.div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                     p-6 bg-gradient-to-br from-blue-950/50 to-black/80
-                     rounded-3xl backdrop-blur-xl shadow-[0_0_60px_20px_rgba(59,130,246,0.4)]
-                     pointer-events-auto
-                     w-[80vw] max-w-[800px]"
+                    p-6 bg-gradient-to-br from-blue-950/50 to-black/80
+                    rounded-3xl backdrop-blur-xl shadow-[0_0_60px_20px_rgba(59,130,246,0.4)]
+                    pointer-events-auto
+                    w-[80vw] max-w-[800px]"
           style={{ rotateX, rotateY }}
           initial={{ opacity: 0, scale: 0.6, rotateZ: 10 }}
           animate={{ opacity: 1, scale: 1, rotateZ: 0 }}
@@ -616,13 +658,31 @@ export default function HyperGrantAI() {
             transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
           />
 
-          <form onSubmit={handleSubmit} className="relative flex gap-3">
+          <form onSubmit={handleSubmit} className="relative flex flex-col gap-4">
+            {/* LinkedIn Input Field */}
+            { showLinkedIn && (
+            <div className="space-y-2">
+              <Label htmlFor="linkedin" className="text-indigo-200/80">
+                LinkedIn Profile (Optional)
+              </Label>
+              <Input
+                id="linkedin"
+                placeholder="https://linkedin.com/in/yourprofile"
+                value={linkedInUrl}
+                onChange={(e) => setLinkedInUrl(e.target.value)}
+                className="bg-gray-800/50 border-gray-700 text-white focus:ring-2 
+                          focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-gray-950"
+              />
+            </div>
+            )}
+
+            {/* Main Project Description Input */}
             <Textarea
               className="w-full bg-transparent border border-indigo-400/50
-                         text-white placeholder-indigo-200 focus:ring-2
-                         focus:ring-indigo-500 focus:ring-offset-0 resize-none"
+                      text-white placeholder-indigo-200 focus:ring-2
+                      focus:ring-indigo-500 focus:ring-offset-0 resize-none"
               placeholder="Describe your research project…"
-              rows={2}
+              rows={4}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => {
@@ -632,17 +692,23 @@ export default function HyperGrantAI() {
                 }
               }}
             />
+
             <Button
               type="submit"
-              size="icon"
-              className="bg-indigo-500 hover:bg-indigo-600 text-white h-12 w-12"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white h-12 w-full"
               disabled={isProcessing}
             >
-              <ChevronRight className="h-5 w-5" />
+              {isProcessing ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  Analyze Project
+                  <ChevronRight className="h-5 w-5 ml-2" />
+                </>
+              )}
             </Button>
           </form>
         </motion.div>
-        </>
       )}
 
 
@@ -674,7 +740,7 @@ export default function HyperGrantAI() {
               <Button 
                 variant="outline" 
                 onClick={() => setShowLinkedIn(false)}
-                className="border-gray-700 text-white hover:bg-gray-800/50"
+                className="border-gray-700 text-white bg-gray-800/50 hover:bg-gray-800/50"
               >
                 Skip
               </Button>
