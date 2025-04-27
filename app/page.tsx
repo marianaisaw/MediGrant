@@ -177,7 +177,7 @@ export default function HyperGrantAI() {
   
       // Database Search Phase
       const searchId = generateId()
-      const searchTarget = Math.floor(Math.random() * 16) + 5
+      const searchTarget = Math.floor(Math.random() * 10) + 1
       updatedMessages = [...updatedMessages, {
         id: searchId,
         content: `Searching ${searchTarget} funding opportunities...`,
@@ -197,7 +197,7 @@ export default function HyperGrantAI() {
           )
         )
         if (current >= searchTarget) clearInterval(ticker)
-      }, 50 + (Math.random() * 100))
+      }, 50 + (Math.random() * 1000))
   
       // Simulate search delay
       await new Promise(resolve => setTimeout(resolve, 1500))
@@ -695,7 +695,7 @@ export default function HyperGrantAI() {
 
             <Button
               type="submit"
-              className="bg-indigo-500 hover:bg-indigo-600 text-white h-12 w-full"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white h-12 w-full cursor-pointer"
               disabled={isProcessing}
             >
               {isProcessing ? (

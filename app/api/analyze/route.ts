@@ -29,63 +29,51 @@ export async function POST(req: Request) {
     }
 
     // Build system prompt with LinkedIn data
-    const systemPrompt = `You are MediGrant AI, a healthcare funding expert. Analyze research projects and match with grants. Follow these steps:
+    const systemPrompt = `You are MediGrant AI, a healthcare funding expert. Your ONLY goal is to generate grant analysis responses in **valid strict JSON format**, and absolutely NOTHING ELSE.
 
-    1. ${linkedInData ? `Analyze LinkedIn Profile:
-       - Name: ${linkedInData.fullName}
-       - Current: ${linkedInData.position} at ${linkedInData.company}
-       - Experience: ${linkedInData.experience && Array.isArray(linkedInData.experience) ? linkedInData.experience.slice(0,3).map((e: { title: string, company: string }) => `${e.title} at ${e.company}`).join(', ') : 'No experience data'}
-       - Education: ${linkedInData.education && Array.isArray(linkedInData.education) ? linkedInData.education.map((e: { degree: string, school: string }) => `${e.degree} at ${e.school}`).join(', ') : 'No education data'}
-       - Skills: ${linkedInData.skills && Array.isArray(linkedInData.skills) ? linkedInData.skills.join(', ') : 'No skills data'}` 
-       : 'No LinkedIn profile provided'}
-    
-    2. Match project description to grants considering:
-       - User's institutional affiliations
-       - Technical expertise from skills
-       - Career stage based on experience
-       - Relevant collaborators
+    CRITICAL RULES:
+    - You MUST output ONLY a valid JSON object. 
+    - Do NOT add ANY natural language explanations, apologies, comments, or formatting.
+    - Do NOT wrap the JSON in markdown (\`\`\`json\`\`\`).
+    - If you cannot find enough information, you MUST still output a properly filled JSON object with "Unknown" or "Not Available" values where necessary, but NEVER write natural sentences outside JSON.
 
-    3. For each grant match, you MUST provide detailed information for these fields:
-       - agency: Provide the SPECIFIC funding agency name (e.g., "National Institutes of Health", "National Science Foundation", "Bill & Melinda Gates Foundation"). NEVER use generic terms like "Unknown" or "TBD".
-       - deadline: Provide a SPECIFIC application deadline with month, day, and year (e.g., "June 30, 2025", "December 15, 2025", "Rolling deadline"). NEVER use generic terms like "Unknown" or "TBD".
-       - focus_area: Provide the SPECIFIC research focus or priority area (e.g., "Infectious Disease Prevention", "Cancer Immunotherapy", "Mental Health Technology"). NEVER use generic terms like "Unknown", "Pending", or "TBD".
+    If you ever output anything other than valid JSON, your session will be considered failed and terminated immediately.
 
-    4. Generate 3-5 thoughtful follow-up questions that would help refine the grant search or provide more targeted recommendations. These questions should:
-       - Address gaps in the user's initial query
-       - Help clarify project scope, timeline, or budget needs
-       - Explore potential eligibility requirements
-       - Inquire about specific research methodologies or approaches
-       - Ask about institutional resources or constraints
+    You MUST respond ONLY using this exact JSON structure:
 
-    CRITICAL INSTRUCTION: YOU MUST RESPOND ONLY WITH VALID JSON. DO NOT include any explanatory text, markdown formatting, code blocks, or other content outside of the JSON object. Your entire response must be parseable as JSON.
-
-    Respond with this exact JSON structure: {
-      "analysis_summary": "Include LinkedIn insights if available",
-      "matched_grants": [
+    {
+    "analysis_summary": "Brief analysis summary using LinkedIn insights if available.",
+    "matched_grants": [
         {
-          "id": "unique-id-string",
-          "name": "Full Grant Title",
-          "grant_name": "Short Grant Name",
-          "agency": "SPECIFIC Agency Name",
-          "deadline": "SPECIFIC Deadline Date",
-          "focus_area": "SPECIFIC Research Focus",
-          "description": "Detailed grant description",
-          "match_reason": "Why this grant matches the project",
-          "budget_range": "$100,000 - $500,000",
-          "eligibility": ["criteria1", "criteria2"],
-          "url": "https://grant-website.org"
+        "id": "AGENCY-YY-NNN",
+        "name": "Full Grant Title",
+        "grant_name": "Short Grant Name",
+        "agency": "SPECIFIC Agency Name",
+        "deadline": "SPECIFIC Deadline (e.g., June 30, 2025)",
+        "focus_area": "SPECIFIC Focus Area (e.g., Cancer Immunotherapy)",
+        "description": "Detailed description of the grant purpose and funding goals.",
+        "match_reason": "Why this grant matches the project based on LinkedIn or project data.",
+        "budget_range": "$X - $Y",
+        "eligibility": ["Criterion 1", "Criterion 2"],
+        "url": "https://grant-link.example.com"
         }
-      ],
-      "follow_up_questions": [
-        "What is your project's anticipated timeline?",
-        "Do you have any specific budget requirements or constraints?",
-        "Are you affiliated with a specific research institution?",
-        "What previous experience do you have with grant applications?",
-        "Are you open to collaborative opportunities with other researchers?"
-      ],
-      "next_steps": ["Consider LinkedIn connections for collaboration"],
-      "confidence_score": 0-1
-    }`
+    ],
+    "follow_up_questions": [
+        "Question 1",
+        "Question 2",
+        "Question 3",
+        "Question 4",
+        "Question 5"
+    ],
+    "next_steps": [
+        "Next step 1",
+        "Next step 2"
+    ],
+    "confidence_score": 0.0-1.0
+    }
+
+    No exceptions. Output this even if the user's prompt is incomplete, irrelevant, or confusing.`
+
 
     // Rest of Claude call remains the same...
     const message = await anthropic.messages.create({
