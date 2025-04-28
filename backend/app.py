@@ -29,7 +29,7 @@ def generate_biographical_sketch(profile_data):
     3. Contributions to Science
     4. Research Support
     
-    Make it professional and well-structured."""
+    Now, make it professional and well-structured."""
 
     try:
         response = model.generate_content(prompt)
