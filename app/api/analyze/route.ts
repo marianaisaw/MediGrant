@@ -1,44 +1,39 @@
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenAI } from '@google/genai'
 import { ApifyClient } from 'apify-client'
 
 interface UserMessage {
-  role: string;
-  content: string;
+  role: string
+  content: string
 }
 
 interface LinkedInData {
-  [key: string]: unknown;
+  [key: string]: unknown
 }
 
 interface Grant {
-  id: string;
-  name: string;
-  grant_name: string;
-  agency: string;
-  deadline: string;
-  focus_area: string;
-  description: string;
-  match_reason: string;
-  budget_range: string;
-  eligibility: string[];
-  url: string;
+  id: string
+  name: string
+  grant_name: string
+  agency: string
+  deadline: string
+  focus_area: string
+  description: string
+  match_reason: string
+  budget_range: string
+  eligibility: string[]
+  url: string
 }
 
 interface ClaudeResponse {
-    analysis_summary: string;
-    matched_grants: Grant[];
-    follow_up_questions: string[];
-    next_steps: string[];
-    confidence_score: number;
+  analysis_summary: string
+  matched_grants: Grant[]
+  follow_up_questions: string[]
+  next_steps: string[]
+  confidence_score: number
 }
 
-interface MessageContent {
-    type: string;
-    text?: string;
-}
-
-const anthropic = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY })
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 const apifyClient = new ApifyClient({ token: process.env.APIFY_API_TOKEN })
 const GRANTS_ENDPOINT = 'https://www.grants.gov/grantsws/rest/opportunities/search'
 
@@ -49,7 +44,7 @@ async function fetchGrants(query: string): Promise<Grant[]> {
     oppStatuses: 'open',
     sortBy: 'postedDate',
     sortOrder: 'desc',
-    pageSize: '10'
+    pageSize: '10',
   })
   const res = await fetch(`${GRANTS_ENDPOINT}?${params.toString()}`)
   if (!res.ok) return []
@@ -69,17 +64,21 @@ export async function POST(req: Request) {
         const run = await apifyClient.actor('2SyF0bVxmgGr8IVCZ').call({
           profileUrls: [linkedInUrl],
           extendOutput: true,
-          timeoutSecs: 120
+          timeoutSecs: 120,
         })
         const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems()
-        linkedInData = items[0] as LinkedInData || null
+        linkedInData = (items[0] as LinkedInData) || null
       } catch (error) {
         console.error('Error fetching LinkedIn data:', error)
       }
     }
 
-    const lastUser = userMessages?.length ? userMessages[userMessages.length - 1].content : ''
-    const keyword = (lastUser.match(/\b([\w-]{4,})\b/g) || []).slice(0, 5).join(' ') || 'health'
+    const lastUser =
+      userMessages.length > 0
+        ? userMessages[userMessages.length - 1].content
+        : ''
+    const keyword =
+      (lastUser.match(/\b([\w-]{4,})\b/g) || []).slice(0, 5).join(' ') || 'health'
     const grants = await fetchGrants(keyword)
     const grantsContext = JSON.stringify(grants.slice(0, 5))
 
@@ -93,27 +92,21 @@ CRITICAL RULES:
 
 Use the following Grants.gov data to improve accuracy: ${grantsContext}
 
-If LinkedIn data is available it is provided after this colon: ${JSON.stringify(linkedInData)}.
+If LinkedIn data is available it is provided after this colon: ${JSON.stringify(
+      linkedInData,
+    )}.
 
 Respond using this exact structure:
 {"analysis_summary":"","matched_grants":[{"id":"","name":"","grant_name":"","agency":"","deadline":"","focus_area":"","description":"","match_reason":"","budget_range":"","eligibility":[],"url":""}],"follow_up_questions":[],"next_steps":[],"confidence_score":0.0}
 No exceptions.`
 
-    const message = await anthropic.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
-      max_tokens: 4000,
-      system: systemPrompt,
-      messages: userMessages.map((msg: { role: string; content: string }) => ({
-        role: msg.role === 'user' ? 'user' : 'assistant',
-        content: msg.content
-      }))
-    })
+    const fullPrompt = `${systemPrompt}\n\nUser: ${lastUser}`
 
-    const text = message.content
-      .filter((c: MessageContent) => c.type === 'text')
-      .map((c: MessageContent) => c.text)
-      .join('')
-      .trim()
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash-001',
+      contents: fullPrompt,
+    })
+    const text = (response.text ?? '').trim()
 
     try {
       const jsonResponse: ClaudeResponse = JSON.parse(text)
@@ -121,20 +114,17 @@ No exceptions.`
     } catch {
       const match = text.match(/(\{[\s\S]*\})/)
       if (match) {
-        try {
-          const jsonResponse: ClaudeResponse = JSON.parse(match[1])
-          return NextResponse.json(jsonResponse)
-        } catch (error) {
-          console.error('Error parsing JSON response:', error)
-        }
+        const jsonResponse: ClaudeResponse = JSON.parse(match[1])
+        return NextResponse.json(jsonResponse)
       }
     }
-    throw new Error('Claude returned an invalid JSON response.')
+
+    throw new Error('Gemini returned an invalid JSON response.')
   } catch (err: unknown) {
     const error = err as Error
     return new NextResponse(
       JSON.stringify({ error: error.message || 'Analysis failed' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
     )
   }
 }
