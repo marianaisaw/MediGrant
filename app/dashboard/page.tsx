@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ChevronRight, Loader2, Linkedin, Search, Sparkles } from 'lucide-react'
+import { ChevronRight, Loader2, Linkedin, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 type Message = {
@@ -61,7 +61,6 @@ export default function HyperGrantAI() {
   const headerFullText = 'Hello! I\'m MediGrant AI. Type your query below.'
   const [typedHeader, setTypedHeader] = useState('')
   
-  // Simple typing animation effect for the header
   useEffect(() => {
     let currentIndex = 0;
     const intervalId = setInterval(() => {
@@ -83,16 +82,13 @@ export default function HyperGrantAI() {
     })
   }, [messages])
 
-  // Removed dynamic gradient based on scroll to improve performance
 
   const generateId = () => `${Date.now()}-${Math.floor(Math.random() * 10000)}`
 
-  // Optimized particle emitter with reduced duration and count
   const emitParticles = (count: number) => {
-    // Limit maximum particles to prevent performance issues
     const safeCount = Math.min(count, 5);
     setParticleCount(safeCount);
-    setTimeout(() => setParticleCount(0), 1000); // Reduced from 3000ms to 1000ms
+    setTimeout(() => setParticleCount(0), 1000);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,7 +99,6 @@ export default function HyperGrantAI() {
     emitParticles(5)
     setHasQueried(true)
   
-    // Add user message
     const userMessage: Message = {
       id: generateId(),
       content: input,
