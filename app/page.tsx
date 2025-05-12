@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Image from 'next/image';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import { Power3 } from 'gsap';
@@ -14,7 +14,6 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function MediGrantPage() {
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
-  const { scrollYProgress } = useScroll();
 
   useEffect(() => {
     // GSAP ScrollTrigger for cards

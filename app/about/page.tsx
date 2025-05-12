@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Image from 'next/image';
-import { motion, useScroll } from 'framer-motion';
+import { motion } from 'framer-motion';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import { Power3 } from 'gsap';
@@ -38,7 +38,6 @@ const founders = [
 
 export default function AboutPage() {
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
-  const { scrollYProgress } = useScroll();
 
   useEffect(() => {
     cardsRef.current.forEach((card) => {
@@ -101,24 +100,24 @@ export default function AboutPage() {
                 <p>
                   We started MediGrant after taking a Medical Device Innovation class
                   at Stanford and realizing how broken the research grant process is,
-                  especially for small clinics and independent researchers. It's time‐
+                  especially for small clinics and independent researchers. It&apos;s time‐
                   consuming, full of unclear requirements, and often requires hiring
                   expensive consultants just to stand a chance.
                 </p>
                 <p>
-                  We've experienced this firsthand, doing research at Stanford, and
+                  We&apos;ve experienced this firsthand, doing research at Stanford, and
                   kept hearing the same frustration from others: researchers wasting
                   months just to figure out how to write the proper proposal. So we
                   started asking questions—scientists, small clinic staff, VCs—and
                   everyone told us the same thing: the system is too hard to navigate,
-                  and it's keeping a lot of good science from getting funded.
+                  and it&apos;s keeping a lot of good science from getting funded.
                 </p>
                 <p>
-                  That's when we realized the core problem: there's over $84B in grant
+                  That&apos;s when we realized the core problem: there&apos;s over $84B in grant
                   funding in healthcare in the U.S., but 77% of small-to-midsize
-                  healthcare orgs don't even apply because they don't know how or
-                  can't afford help. If you're not already in the system, you're locked
-                  out. That's what we're fixing.
+                  healthcare orgs don&apos;t even apply because they don&apos;t know how or
+                  can&apos;t afford help. If you&apos;re not already in the system, you&apos;re locked
+                  out. That&apos;s what we&apos;re fixing.
                 </p>
               </motion.div>
             </div>
