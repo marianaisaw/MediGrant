@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ChevronRight, Loader2, Linkedin, Search, Sparkles } from 'lucide-react'
-import { motion, AnimatePresence, useScroll, useTransform, useMotionValue } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 type Message = {
   id: string
@@ -58,31 +58,23 @@ export default function HyperGrantAI() {
   const [matchedGrants, setMatchedGrants] = useState<(Grant | string)[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({
-    container: containerRef
-  })
-  const mouseX = useMotionValue(0)
-  const mouseY = useMotionValue(0)
-  const rotateX = useTransform(mouseY, [ -100, 100 ], [ 5, -5 ])
-  const rotateY = useTransform(mouseX, [ -100, 100 ], [ -5, 5 ])
   const headerFullText = 'Hello! I\'m MediGrant AI. Type your query below.'
   const [typedHeader, setTypedHeader] = useState('')
+  
+  // Simple typing animation effect for the header
   useEffect(() => {
-    let index = 0
-    const timer = setInterval(() => {
-      setTypedHeader(headerFullText.slice(0, index + 1))
-      index++
-      if (index === headerFullText.length) clearInterval(timer)
-    }, 40)
-    return () => clearInterval(timer)
-  }, [])
-
-  // attach to container
-  const handlePointerMove = (e: React.PointerEvent) => {
-    const { innerWidth, innerHeight } = window
-    mouseX.set(e.clientX - innerWidth / 2)
-    mouseY.set(e.clientY - innerHeight / 2)
-  }
+    let currentIndex = 0;
+    const intervalId = setInterval(() => {
+      if (currentIndex <= headerFullText.length) {
+        setTypedHeader(headerFullText.slice(0, currentIndex))
+        currentIndex++;
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 15);
+    
+    return () => clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -91,19 +83,16 @@ export default function HyperGrantAI() {
     })
   }, [messages])
 
-  // Dynamic background gradient based on scroll
-  const bgGradient = useTransform(
-    scrollYProgress,
-    [0, 1],
-    ['radial-gradient(circle at 50% 0%, rgba(15,23,42,0.8) 0%, rgba(2,6,23,1) 100%)', 'radial-gradient(circle at 50% 100%, rgba(30,58,138,0.6) 0%, rgba(2,6,23,1) 100%)']
-  )
+  // Removed dynamic gradient based on scroll to improve performance
 
   const generateId = () => `${Date.now()}-${Math.floor(Math.random() * 10000)}`
 
-  // Particle emitter for grant mentions
+  // Optimized particle emitter with reduced duration and count
   const emitParticles = (count: number) => {
-    setParticleCount(count)
-    setTimeout(() => setParticleCount(0), 3000)
+    // Limit maximum particles to prevent performance issues
+    const safeCount = Math.min(count, 5);
+    setParticleCount(safeCount);
+    setTimeout(() => setParticleCount(0), 1000); // Reduced from 3000ms to 1000ms
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -273,9 +262,9 @@ export default function HyperGrantAI() {
     return { text, followUp }
   }  
 
-  // Fixed: Enhanced typeMessage with visual effects
+  // Optimized typeMessage with batched rendering for better performance
   const typeMessage = async (message: string, existingMessages: Message[], messageId: string) => {
-    let typedContent = ''
+    // Add typing indicator immediately
     setMessages([...existingMessages, {
       id: messageId,
       content: '',
@@ -283,29 +272,40 @@ export default function HyperGrantAI() {
       status: 'typing'
     }])
     
-    for (let i = 0; i < message.length; i++) {
-      typedContent += message[i]
+    // Batch sizes for better performance - chunk the text instead of character by character
+    const chunkSize = 10;
+    const chunks = [];
+    
+    // Split message into chunks for more efficient rendering
+    for (let i = 0; i < message.length; i += chunkSize) {
+      chunks.push(message.substring(i, i + chunkSize));
+    }
+    
+    let typedContent = '';
+    for (let i = 0; i < chunks.length; i++) {
+      typedContent += chunks[i];
+      
+      // Only check for grants at the end of each chunk
+      const grantLinks = typedContent.match(/[A-Z]{2,}-\d{2}-\d{3}/g) || [];
+      
       setMessages(prev => {
-        const prevWithoutTyping = prev.filter(m => m.id !== messageId || m.status !== 'typing')
+        const prevWithoutTyping = prev.filter(m => m.id !== messageId || m.status !== 'typing');
         return [...prevWithoutTyping, {
           id: messageId,
           content: typedContent,
           sender: 'bot',
-          status: i === message.length - 1 ? 'complete' : 'typing',
-          grantLinks: typedContent.match(/[A-Z]{2,}-\d{2}-\d{3}/g) || []
-        }]
-      })
+          status: i === chunks.length - 1 ? 'complete' : 'typing',
+          grantLinks
+        }];
+      });
       
-      // Enhanced typing effects
-      const char = message[i]
-      if (char.match(/[A-Z]{2,}-\d{2}-\d{3}/)) {
-        emitParticles(8)
-        await new Promise(resolve => setTimeout(resolve, 5)) // Pause for emphasis
-      } else if (char.match(/[.!?]/)) {
-        await new Promise(resolve => setTimeout(resolve, 15)) // Natural pause
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 1)) // Human-like variation
+      // Emit particles only when a grant ID is found in the new chunk (max once per chunk)
+      if (chunks[i].match(/[A-Z]{2,}-\d{2}-\d{3}/)) {
+        emitParticles(3); // Reduced particle count from 8 to 3
       }
+      
+      // Use a consistent, reduced delay between chunks instead of variable delays
+      await new Promise(resolve => setTimeout(resolve, 30));
     }
   }
 
@@ -350,16 +350,18 @@ export default function HyperGrantAI() {
   return (
     <motion.div 
       className="flex flex-col h-screen text-white font-sans"
-      style={{ background: bgGradient }}
-      onPointerMove={handlePointerMove}
+      style={{ 
+        background: 'radial-gradient(circle at 50% 0%, rgba(15,23,42,0.8) 0%, rgba(2,6,23,1) 100%)',
+        willChange: 'transform' 
+      }}
       ref={containerRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6 }}
     >
       {/* Neuro-reactive header */}
-      <motion.header 
+      <header 
         className="py-4 px-6 border-b border-blue-400/20 backdrop-blur-lg"
-        initial={{ y: -20 }}
-        animate={{ y: 0 }}
-        transition={{ type: 'spring', damping: 10 }}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -371,51 +373,48 @@ export default function HyperGrantAI() {
             </p>
           </div>
           <div className="flex gap-2">
-            <motion.div 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button 
+            <Button 
                 variant="ghost" 
                 size="sm"
                 onClick={() => setShowLinkedIn(!showLinkedIn)}
-                className="text-blue-300 border border-blue-400/30"
+                className="text-blue-300 border border-blue-400/30 
+                           hover:scale-105 active:scale-95 transition-transform"
               >
                 <Linkedin className="h-4 w-4 mr-2" />
                 {showLinkedIn ? 'Hide' : 'Connect'}
               </Button>
-            </motion.div>
           </div>
         </div>
-      </motion.header>
+      </header>
 
       {/* Quantum message interface */}
       <main className="flex-1 overflow-y-auto pt-6 px-6 pb-0 space-y-6 relative overscroll-none">
-        {/* Floating grant particles */}
+        {/* Optimized floating grant particles */}
         <AnimatePresence>
           {Array.from({ length: particleCount }).map((_, i) => (
             <motion.div
               key={i}
               className="absolute rounded-full bg-blue-400/80 pointer-events-none"
               initial={{ 
-                x: Math.random() * window.innerWidth - 100,
+                x: Math.random() * window.innerWidth / 2, // Reduced random range
                 y: 0,
-                opacity: 1,
+                opacity: 0.8,
                 scale: 0.5
               }}
               animate={{ 
-                y: -100,
+                y: -50, // Reduced travel distance
                 opacity: 0,
-                scale: 1.5,
-                x: Math.random() * 200 - 100
+                scale: 1.2, // Reduced scale effect
+                x: (i * 20) - 40 // Deterministic x positions instead of random
               }}
               transition={{ 
-                duration: 2,
-                ease: [0, 0, 0.58, 1]
+                duration: 1, // Reduced from 2s to 1s
+                ease: 'easeOut'
               }}
               style={{
-                width: Math.random() * 8 + 4,
-                height: Math.random() * 8 + 4
+                width: 6, // Fixed size
+                height: 6, // Fixed size
+                willChange: 'transform, opacity' // Hardware acceleration hint
               }}
             />
           ))}
@@ -425,9 +424,13 @@ export default function HyperGrantAI() {
           <motion.div 
           key={message.id}
             className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }} 
             animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 300 }}
+            transition={{ 
+              type: 'tween', // Changed from spring to tween (more performant)
+              duration: 0.2 // Short, fixed duration instead of spring physics
+            }}
+            layout // Use React layout animations instead of spring-based animations
           >
             <motion.div
               whileHover={{ scale: message.sender === 'bot' ? 1.01 : 1 }}
@@ -456,45 +459,29 @@ export default function HyperGrantAI() {
                   <div className="flex items-start gap-4">
                     {/* Animated status indicator */}
                     {message.sender === 'agent' && (
-                      <motion.div 
+                      <div 
                         className="mt-1 flex items-center"
-                        animate={{ 
-                          rotate: message.status === 'analyzing' ? [0, 360] : 0,
-                          scale: message.status ? [1, 1.1, 1] : 1
-                        }}
-                        transition={{ 
-                          rotate: { 
-                            repeat: Infinity, 
-                            duration: 2, 
-                            ease: "linear" 
-                          },
-                          scale: { 
-                            repeat: Infinity,
-                            duration: 1.5,
-                            ease: [0.445, 0.05, 0.55, 0.95]
-                          }
-                        }}
                       >
                         {message.status === 'analyzing' ? (
                           <div className="relative">
                             <Loader2 className="h-5 w-5 text-yellow-400 animate-spin" />
-                            <motion.div 
-                              className="absolute inset-0 rounded-full border-2 border-yellow-400/30"
-                              animate={{ scale: [1, 1.5, 1] }}
-                              transition={{ repeat: Infinity, duration: 1.5 }}
+                            <div 
+                              className="absolute inset-0 rounded-full border-2 border-yellow-400/30
+                                         animate-ping"
+                              style={{ animationDuration: '1.5s' }}
                             />
                           </div>
                         ) : message.status === 'searching' ? (
                           <div className="relative">
                             <Search className="h-5 w-5 text-purple-400 animate-pulse" />
-                            <motion.div 
-                              className="absolute -inset-1 rounded-full bg-purple-400/10"
-                              animate={{ scale: [1, 1.3, 1] }}
-                              transition={{ repeat: Infinity, duration: 2 }}
+                            <div 
+                              className="absolute -inset-1 rounded-full bg-purple-400/10
+                                         animate-pulse"
+                              style={{ animationDuration: '2s' }}
                             />
                           </div>
                         ) : null}
-                      </motion.div>
+                      </div>
                     )}
                     
                     <div className="flex-1">
@@ -517,24 +504,20 @@ export default function HyperGrantAI() {
 
                       {/* Dynamic typing indicator */}
                       {message.status === 'typing' && (
-                        <motion.div 
-                          className="flex space-x-2 mt-4"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                        >
-                          {[0, 0.2, 0.4].map((delay) => (
-                            <motion.div 
-                              key={delay}
-                              className="w-2 h-2 rounded-full bg-blue-400"
-                              animate={{ y: [0, -10, 0] }}
-                              transition={{ 
-                                repeat: Infinity,
-                                duration: 1,
-                                delay
+                        <div className="flex space-x-2 mt-4 opacity-80">
+                          {[0, 1, 2].map((i) => (
+                            <div 
+                              key={i}
+                              className={`w-2 h-2 rounded-full bg-blue-400 
+                                       animate-bounce`}
+                              style={{ 
+                                animationDuration: '0.8s',
+                                animationDelay: `${i * 0.1}s`,
+                                willChange: 'transform'
                               }}
                             />
                           ))}
-                        </motion.div>
+                        </div>
                       )}
 
                       {message.grantLinks?.map(grantId => {
@@ -568,36 +551,27 @@ export default function HyperGrantAI() {
       </main>
 
       {!hasQueried && (
-        <motion.div
+        <div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
                     p-6 bg-gradient-to-br from-blue-950/50 to-black/80
                     rounded-3xl backdrop-blur-xl shadow-[0_0_60px_20px_rgba(59,130,246,0.4)]
                     pointer-events-auto
-                    w-[80vw] max-w-[800px]"
-          style={{ rotateX, rotateY }}
-          initial={{ opacity: 0, scale: 0.6, rotateZ: 10 }}
-          animate={{ opacity: 1, scale: 1, rotateZ: 0 }}
-          transition={{ type: 'spring', stiffness: 180, damping: 12 }}
-          whileHover={{ scale: 1.05 }}
+                    w-[80vw] max-w-[800px]
+                    transition-opacity duration-300 ease-in-out"
         >
-          <motion.div
-            className="absolute inset-0 rounded-3xl border-4 border-indigo-500/50"
-            initial={{ scale: 0.8, opacity: 0.4 }}
-            animate={{ scale: [0.8, 1.2], opacity: [0.0, 0.4, 0.0] }}
-            transition={{ repeat: Infinity, duration: 2, ease: [0.445, 0.05, 0.55, 0.95] }}
+          <div
+            className="absolute inset-0 rounded-3xl border-4 border-indigo-500/50 animate-pulse"
+            style={{ animationDuration: '2s' }}
           />
 
           <form onSubmit={handleSubmit} className="relative flex flex-col gap-6">
             {/* animated typed header */}
             {typedHeader && (
-              <motion.h2
+              <h2
                 className="text-3xl font-bold text-center text-white tracking-tighter"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
               >
                 {typedHeader}
-              </motion.h2>
+              </h2>
             )}
 
             {showLinkedIn && (
@@ -640,24 +614,17 @@ export default function HyperGrantAI() {
               {isProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Analyze Project'}
             </Button>
           </form>
-        </motion.div>
+        </div>
       )}
 
-
-
-      {/* Quantum input interface */}
-      <motion.footer
-        className="border-t border-blue-400/20 p-4 backdrop-blur-lg bg-gray-900/50"
-        initial={{ opacity: 0, height: 0 }}
-       animate={{ opacity: hasQueried ? 1 : 0, height: hasQueried ? 'auto' : 0 }}
-        transition={{ type: 'spring', stiffness: 120, damping: 14 }}
-      >
+      {/* Quantum input interface - Simplified to static footer for performance */}
+      {hasQueried && (
+        <footer
+          className="border-t border-blue-400/20 p-4 backdrop-blur-lg bg-gray-900/50"
+        >
         {showLinkedIn && (
-          <motion.div 
+          <div 
             className="mb-4"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
           >
             <Label htmlFor="linkedin" className="text-blue-200/80 mb-2 block">
               LinkedIn Profile (Optional)
@@ -678,84 +645,38 @@ export default function HyperGrantAI() {
                 Skip
               </Button>
             </div>
-          </motion.div>
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="flex gap-3">
-          <motion.div 
-            className="flex-1 relative"
-            whileHover={{ scale: 1.005 }}
+          <div 
+            className="flex-1 relative hover:scale-[1.005] transition-transform"
           >
-            <Textarea
-              className="w-full bg-gray-800/50 border-gray-700 text-white focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-950 pr-12 resize-none"
-              placeholder="Describe your research project or funding needs..."
-              rows={1}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSubmit(e)
-                }
-              }}
-            />
-            <div className="absolute right-3 bottom-3 flex gap-1">
-              <motion.button 
-                type="button"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="text-gray-400 hover:text-blue-400 transition-colors"
-              >
-                <Sparkles className="h-4 w-4" />
-              </motion.button>
-            </div>
-          </motion.div>
-          
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Button 
-              type="submit" 
-              size="icon" 
-              disabled={isProcessing}
-              className="bg-blue-500 hover:bg-blue-600 text-white h-12 w-12 relative overflow-hidden"
-            >
-              {isProcessing ? (
-                <div className="flex items-center justify-center">
-                  <Loader2 className="animate-spin h-5 w-5" />
-                  {/* Pulsing background effect */}
-                  <motion.div 
-                    className="absolute inset-0 bg-blue-500/30 rounded-full"
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ repeat: Infinity, duration: 1.5 }}
-                  />
-                </div>
-              ) : (
-                <>
-                  <ChevronRight className="h-5 w-5" />
-                  <span className="absolute inset-0 bg-blue-400/20 hover:bg-blue-400/30 transition-colors rounded-full" />
-                </>
-              )}
-            </Button>
-          </motion.div>
+            <ChevronRight className="h-5 w-5" />
+            <span className="absolute inset-0 bg-blue-400/20 hover:bg-blue-400/30 transition-colors rounded-full" />
+          </div>
         </form>
+
+        <div className="mt-3 text-xs flex justify-between items-center">
+          <span className="text-blue-200/60">
+          </span>
+        </div>
 
         <div className="mt-3 text-xs flex justify-between items-center">
           <span className="text-blue-200/60">
             Powered by Grants.gov API • NSF Database • NIH RePORTER
           </span>
-          <motion.button 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+          <button 
             onClick={() => setShowLinkedIn(!showLinkedIn)} 
-            className="text-blue-300/80 hover:text-blue-400 flex items-center gap-1 text-xs"
+            className="text-blue-300/80 hover:text-blue-400 hover:scale-105 active:scale-95 transition-all flex items-center gap-1 text-xs"
           >
             <Linkedin className="h-3 w-3" />
             {showLinkedIn ? 'Hide LinkedIn' : 'Connect Profile'}
-          </motion.button>
+          </button>
         </div>
-      </motion.footer>
+      </footer>
+      )}
     </motion.div>
   )
+
 }
