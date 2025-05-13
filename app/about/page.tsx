@@ -31,7 +31,7 @@ const founders = [
     name: 'Joseph Karam',
     role: 'CTO',
     image: '/joseph.jpeg',
-    desc: `Joseph, co-founder and CTO of MediGrant, brings deep expertise in enterprise software and scalable systems. With a background in team building and engineering high-impact solutions, he leads MediGrant’s tech strategy to deliver efficient, AI-powered tools that simplify healthcare grant access.`,
+    desc: `Joseph, co-founder and CTO of MediGrant, brings deep expertise in enterprise software and scalable systems. With a background in team building and engineering high-impact solutions, he leads MediGrant's tech strategy to deliver efficient, AI-powered tools that simplify healthcare grant access.`,
     link: 'https://www.linkedin.com/in/josephkaram7/',
   },
 ];
@@ -82,7 +82,12 @@ export default function AboutPage() {
         <section className="pt-32 pb-20 bg-[#0A0F1C]/60 backdrop-blur-md relative">
           <div className="container mx-auto px-6 space-y-16">
             {/* OUR STORY */}
-            <div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+            >
               <div className="text-sm uppercase text-white font-semibold mb-3">Our Story</div>
               <h2 className="text-3xl font-bold mb-8">
                 Why{' '}
@@ -120,10 +125,15 @@ export default function AboutPage() {
                   out. That&apos;s what we&apos;re fixing.
                 </p>
               </motion.div>
-            </div>
+            </motion.div>
 
             {/* LEADERSHIP */}
-            <div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+            >
               <div className="text-sm uppercase text-white font-semibold mb-3">Leadership</div>
               <h2 className="text-3xl font-bold mb-8">
                 Our{' '}
@@ -138,39 +148,41 @@ export default function AboutPage() {
                     ref={(el) => {
                       if (el) cardsRef.current[i] = el;
                     }}
-                    className="bg-[#0A0F1C]/60 backdrop-blur-md border border-[#3ABEFF]/20 rounded-2xl p-8 opacity-0 translate-y-10"
+                    className="bg-[#0A0F1C]/60 backdrop-blur-md border border-[#3ABEFF]/20 rounded-2xl p-8 opacity-0 translate-y-10 flex flex-col h-full"
                   >
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.6, delay: i * 0.2 }}
-                      className="space-y-4"
+                      className="space-y-4 flex-grow flex flex-col"
                     >
                       <div className="relative w-full aspect-square h-64 rounded-2xl overflow-hidden">
                         <Image src={f.image} alt={f.name} fill className="object-cover" />
                       </div>
                       <div className="text-xl font-bold">{f.name}</div>
                       <div className="text-white uppercase font-medium">{f.role}</div>
-                      <p className="text-[#B0C7D1] text-sm">{f.desc}</p>
-                      <a
-                        href={f.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center space-x-2 font-medium hover:text-[#3ABEFF]"
-                      >
-                        <img
-                          src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/linkedin.svg"
-                          alt="LinkedIn"
-                          className="w-5 h-5"
-                        />
-                        <span>LinkedIn</span>
-                      </a>
+                      <p className="text-[#B0C7D1] text-sm flex-grow">{f.desc}</p>
+                      <div className="mt-auto pt-4">
+                        <a
+                          href={f.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center space-x-2 font-medium hover:text-[#3ABEFF]"
+                        >
+                          <img
+                            src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/linkedin.svg"
+                            alt="LinkedIn"
+                            className="w-5 h-5 invert"
+                          />
+                          <span>LinkedIn</span>
+                        </a>
+                      </div>
                     </motion.div>
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           </div>
         </section>
 

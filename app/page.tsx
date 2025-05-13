@@ -8,6 +8,7 @@ import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import { Power3 } from 'gsap';
 import Navbar from '@/components/Navbar';
+import BookDemoModal from '@/components/BookDemoModal';
 
 // Register GSAP ScrollTrigger plugin
 gsap.registerPlugin(ScrollTrigger);
@@ -123,7 +124,7 @@ export default function MediGrantPage() {
                 whileHover={{ scale: 1.05 }}
                 transition={{ duration: 0.3 }}
               >
-                <span className="relative z-10">Get Started</span>
+                <span className="relative z-10">View Our Demo</span>
                 <span className="absolute inset-0 bg-gradient-to-r from-[#6FDBFF] to-[#3ABEFF] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </motion.a>
             </motion.div>
@@ -225,7 +226,6 @@ export default function MediGrantPage() {
                   items: [
                     'Save time with instant, expert guidance',
                     'Faster, less confusing process',
-                    'Strengthen your application with tailored recommendations',
                   ],
                   color: 'bg-[#3ABEFF]/10',
                 },
@@ -337,14 +337,13 @@ export default function MediGrantPage() {
                 Join the future of healthcare research funding with AI-powered
                 tools designed to maximize your success rate.
               </p>
-              <a
-                href="#"
-                className="inline-block px-8 py-4 rounded-full bg-gradient-to-r from-[#3ABEFF] to-[#6FDBFF] text-[#0A0F1C] font-bold hover:shadow-[0_0_40px_rgba(58,190,255,0.6)] transition-all duration-300 relative overflow-hidden group"
-              >
-                <span className="relative z-10">Request Early Access</span>
-                <span className="absolute inset-0 bg-gradient-to-r from-[#6FDBFF] to-[#3ABEFF] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </a>
-            </div>
+              <div className="flex justify-center">
+              <BookDemoModal 
+                buttonText="Book a Demo"
+                buttonClassName="cursor-pointer inline-block px-8 py-4 rounded-full bg-gradient-to-r from-[#3ABEFF] to-[#6FDBFF] text-[#0A0F1C] font-bold hover:shadow-[0_0_40px_rgba(58,190,255,0.6)] transition-all duration-300 relative overflow-hidden group flex justify-center items-center"
+              />
+              </div>
+              </div>
           </div>
         </section>
 
