@@ -9,11 +9,14 @@ import { MessageItem } from '@/components/dashboard/MessageItem'
 import { ParticleEffects } from '@/components/dashboard/ParticleEffects'
 import { WelcomeForm } from '@/components/dashboard/WelcomeForm'
 
-import { Message, Grant, AnalysisResponse } from '@/components/dashboard/types'
-import { generateId, typeMessage, formatClaudeResponse } from '@/components/dashboard/utils'
+import { Message, Grant, AnalysisResponse } from '@/lib/dashboard/types'
+import { generateId, typeMessage, formatClaudeResponse } from '@/lib/dashboard/utils'
+import { analyzeQuery } from '@/lib/dashboard/apiService'
+import { useApiState } from '@/hooks/useApiState'
 
 export default function HyperGrantAI() {
   const [input, setInput] = useState('')
+  const [userProfilePdf, setUserProfilePdf] = useState<File | null>(null)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'initial-message',
@@ -25,7 +28,7 @@ export default function HyperGrantAI() {
   ])
   const [showLinkedIn, setShowLinkedIn] = useState(false)
   const [linkedInUrl, setLinkedInUrl] = useState('')
-  const [isProcessing, setIsProcessing] = useState(false)
+  const analysisState = useApiState<AnalysisResponse>(null)
   const [hasQueried, setHasQueried] = useState(false)
   const [particleCount, setParticleCount] = useState(0)
   const [matchedGrants, setMatchedGrants] = useState<(Grant | string)[]>([])
@@ -63,12 +66,13 @@ export default function HyperGrantAI() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isProcessing) return
+    if (!input.trim() || analysisState.isLoading) return
   
-    setIsProcessing(true)
+    analysisState.startLoading()
     emitParticles(5)
     setHasQueried(true)
   
+    // Add user message to chat
     const userMessage: Message = {
       id: generateId(),
       content: input,
@@ -80,6 +84,7 @@ export default function HyperGrantAI() {
     setInput('')
   
     try {
+      // Show LinkedIn analysis message if URL is provided
       if (linkedInUrl) {
         const scrapingId = generateId()
         updatedMessages = [...updatedMessages, {
@@ -90,6 +95,8 @@ export default function HyperGrantAI() {
         }]
         setMessages(updatedMessages)
       }
+      
+      // Show analysis in progress message
       const analysisId = generateId()
       updatedMessages = [...updatedMessages, {
         id: analysisId,
@@ -99,24 +106,15 @@ export default function HyperGrantAI() {
       }]
       setMessages(updatedMessages)
   
-      const analysisRes = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: input }],
-          linkedInUrl: linkedInUrl 
-        })
+      // Call API service to analyze the query with optional PDF
+      const analysisData = await analyzeQuery(input, {
+        linkedInUrl: linkedInUrl || undefined,
+        pdfFile: userProfilePdf || undefined
       })
-      
-      if (!analysisRes.ok) {
-        throw new Error(`API error: ${analysisRes.status}`)
-      }
-  
-      const analysisData: AnalysisResponse = await analysisRes.json()
+      analysisState.setData(analysisData)
       setMatchedGrants(analysisData.matched_grants)
   
+      // Update analysis message to complete
       updatedMessages = updatedMessages.filter(m => m.id !== analysisId)
       updatedMessages.push({
         id: analysisId,
@@ -125,6 +123,7 @@ export default function HyperGrantAI() {
         status: 'complete'
       })
   
+      // Show searching animation
       const searchId = generateId()
       const searchTarget = Math.floor(Math.random() * 10) + 1
       updatedMessages = [...updatedMessages, {
@@ -150,6 +149,7 @@ export default function HyperGrantAI() {
   
       await new Promise(resolve => setTimeout(resolve, 1500))
   
+      // Format and display the response
       const formattedResponse = formatClaudeResponse(analysisData)
       const botMessageId = generateId()
       
@@ -167,19 +167,33 @@ export default function HyperGrantAI() {
       await typeMessage(formattedResponse.followUp, updatedMessages, followUpId, setMessages, emitParticles)
   
     } catch (error) {
+      // Handle errors
       console.error('API Error:', error)
+      analysisState.setError(error instanceof Error ? error : new Error('Unknown error'))
+      
       const errorId = generateId()
       await typeMessage(
-        '⚠️ Error processing request. Our team has been notified. Please try again later.', 
+        `⚠️ ${error instanceof Error ? error.message : 'Error processing request. Our team has been notified. Please try again later.'}`, 
         updatedMessages, 
         errorId,
         setMessages,
         emitParticles
       )
-    } finally {
-      setIsProcessing(false)
     }
   }
+
+  // PDF upload handler
+  const handlePdfSelect = async (file: File) => {
+    // Store the PDF file for later use with the query
+    setUserProfilePdf(file);
+    
+    // Post system message
+    const uploadingId = generateId();
+    setMessages(prev => ([
+      ...prev,
+      { id: uploadingId, content: 'PDF uploaded successfully. It will be analyzed along with your next query.', sender: 'agent', status: 'complete' }
+    ]));
+  };
 
   return (
     <motion.div 
@@ -220,9 +234,10 @@ export default function HyperGrantAI() {
           setLinkedInUrl={setLinkedInUrl}
           showLinkedIn={showLinkedIn}
           setShowLinkedIn={setShowLinkedIn}
-          isProcessing={isProcessing}
+          isProcessing={analysisState.isLoading}
           handleSubmit={handleSubmit}
           typedHeader={typedHeader}
+          onPdfSelect={handlePdfSelect}
         />
       )}
 
@@ -234,6 +249,8 @@ export default function HyperGrantAI() {
           linkedInUrl={linkedInUrl}
           setLinkedInUrl={setLinkedInUrl}
           handleSubmit={handleSubmit}
+          input={input}
+          setInput={setInput}
         />
       )}
     </motion.div>

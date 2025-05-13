@@ -11,6 +11,8 @@ type FooterProps = {
   linkedInUrl: string
   setLinkedInUrl: (url: string) => void
   handleSubmit: (e: React.FormEvent) => Promise<void>
+  input?: string
+  setInput?: (input: string) => void
 }
 
 export function Footer({
@@ -19,7 +21,9 @@ export function Footer({
   setShowLinkedIn,
   linkedInUrl,
   setLinkedInUrl,
-  handleSubmit
+  handleSubmit,
+  input = '',
+  setInput = () => {}
 }: FooterProps) {
   if (!hasQueried) return null
   
@@ -54,12 +58,21 @@ export function Footer({
       )}
 
       <form onSubmit={handleSubmit} className="flex gap-3">
-        <div 
-          className="flex-1 relative hover:scale-[1.005] transition-transform"
+        <Input
+          type="text"
+          placeholder="Ask me about healthcare research grants..."
+          className="flex-1 bg-gray-800/50 border-gray-700 text-white focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-950"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          required
+        />
+        <Button 
+          type="submit" 
+          className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
         >
           <ChevronRight className="h-5 w-5" />
-          <span className="absolute inset-0 bg-blue-400/20 hover:bg-blue-400/30 transition-colors rounded-full" />
-        </div>
+          <span className="sr-only">Send</span>
+        </Button>
       </form>
 
       <div className="mt-3 text-xs flex justify-between items-center">

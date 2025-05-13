@@ -52,11 +52,98 @@ async function fetchGrants(query: string): Promise<Grant[]> {
   return data?.opportunities || []
 }
 
+// Process PDF file and extract text using Gemini
+async function processPdf(file: Blob): Promise<string> {
+  try {
+    const fileMime = file.type || 'application/pdf';
+    
+    // Initialize the Gemini client
+    const ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY!,
+    });
+
+    // Upload the file to Gemini
+    const uploadResult = await ai.files.upload({ file });
+    
+    const model = 'gemini-2.0-flash';
+    const configAI = { responseMimeType: 'text/plain' };
+
+    // Build the contents array, first part is the file, then the parse command
+    const contents = [
+      {
+        role: 'user',
+        parts: [
+          {
+            fileData: {
+              fileUri: uploadResult.uri,
+              mimeType: fileMime,
+            },
+          },
+          { text: 'parse' },
+        ],
+      },
+    ];
+
+    let fullText = '';
+    // Stream the analysis from Gemini
+    const stream = await ai.models.generateContentStream({
+      model,
+      config: configAI,
+      contents,
+    });
+    
+    for await (const chunk of stream) {
+      fullText += chunk.text;
+    }
+    
+    return fullText;
+  } catch (error) {
+    console.error('PDF processing error:', error);
+    throw new Error('Failed to process PDF');
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    const userMessages = body.messages as UserMessage[]
-    const linkedInUrl = body.linkedInUrl as string | undefined
+    const contentType = req.headers.get('content-type') || '';
+    let userMessages: UserMessage[] = [];
+    let linkedInUrl: string | undefined;
+    let pdfText: string | null = null;
+    
+    // Handle multipart/form-data (for PDF uploads)
+    if (contentType.startsWith('multipart/form-data')) {
+      const formData = await req.formData();
+      
+      // Extract user query from form data
+      const queryData = formData.get('query');
+      if (queryData && typeof queryData === 'string') {
+        userMessages = [{ role: 'user', content: queryData }];
+      }
+      
+      // Extract LinkedIn URL if present
+      const linkedInData = formData.get('linkedInUrl');
+      if (linkedInData && typeof linkedInData === 'string') {
+        linkedInUrl = linkedInData;
+      }
+      
+      // Process PDF if present
+      const pdfFile = formData.get('pdf');
+      if (pdfFile && pdfFile instanceof Blob) {
+        try {
+          pdfText = await processPdf(pdfFile);
+        } catch (pdfError) {
+          console.error('PDF processing error:', pdfError);
+          // Continue without PDF data if processing fails
+        }
+      }
+    } 
+    // Handle JSON requests (regular API calls)
+    else {
+      const body = await req.json();
+      userMessages = body.messages as UserMessage[];
+      linkedInUrl = body.linkedInUrl as string | undefined;
+      pdfText = body.pdfText as string | null;
+    }
 
     let linkedInData: LinkedInData | null = null
     if (linkedInUrl) {
@@ -95,6 +182,8 @@ Use the following Grants.gov data to improve accuracy: ${grantsContext}
 If LinkedIn data is available it is provided after this colon: ${JSON.stringify(
       linkedInData,
     )}.
+
+${pdfText ? `User has uploaded a PDF document with the following content: ${pdfText}` : ''}
 
 Respond using this exact structure:
 {"analysis_summary":"","matched_grants":[{"id":"","name":"","grant_name":"","agency":"","deadline":"","focus_area":"","description":"","match_reason":"","budget_range":"","eligibility":[],"url":""}],"follow_up_questions":[],"next_steps":[],"confidence_score":0.0}

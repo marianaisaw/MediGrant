@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
-import { Grant } from './types'
+import { Grant } from '@/lib/dashboard/types'
 
 type GrantHologramProps = {
   grant: Grant

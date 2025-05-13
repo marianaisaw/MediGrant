@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, Search } from 'lucide-react'
-import { Message, Grant } from './types'
+import { Message, Grant } from '@/lib/dashboard/types'
 import { GrantHologram } from './GrantHologram'
 
 type MessageItemProps = {
