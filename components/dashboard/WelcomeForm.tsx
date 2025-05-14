@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Paperclip } from 'lucide-react'
+import { Loader2, Paperclip, Linkedin } from 'lucide-react'
 
 type WelcomeFormProps = {
   input: string
@@ -28,6 +28,7 @@ export function WelcomeForm({
   linkedInUrl,
   setLinkedInUrl,
   showLinkedIn,
+  setShowLinkedIn,
   isProcessing,
   handleSubmit,
   typedHeader,
@@ -101,15 +102,27 @@ export function WelcomeForm({
             }}
           />
 
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isProcessing}
-            className="absolute top-2 right-2 p-1 rounded hover:bg-indigo-600/30
-                       focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-          >
-            <Paperclip className="h-5 w-5 text-indigo-300 hover:text-white" />
-          </button>
+          <div className="absolute top-2 right-2 flex space-x-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing}
+              className="p-1 rounded hover:bg-indigo-600/30
+                        focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+            >
+              <Paperclip className="h-5 w-5 text-indigo-300 hover:text-white" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowLinkedIn(!showLinkedIn)}
+              disabled={isProcessing}
+              className="p-1 rounded hover:bg-indigo-600/30
+                        focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+              title={showLinkedIn ? "Hide LinkedIn Profile" : "Add LinkedIn Profile"}
+            >
+              <Linkedin className="h-5 w-5 text-indigo-300 hover:text-white" />
+            </button>
+          </div>
         </div>
 
         {/* show selected file name below */}

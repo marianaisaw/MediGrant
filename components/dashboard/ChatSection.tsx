@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { MessageItem } from '@/components/dashboard/MessageItem'
 import { Message, Grant } from '@/lib/dashboard/types'
 import { generateId, typeMessage } from '@/lib/dashboard/utils'
-import { Paperclip, Send, Loader2 } from 'lucide-react'
+import { Paperclip, Send, Loader2, Linkedin } from 'lucide-react'
 
 type ChatSectionProps = {
   isLoading?: boolean
@@ -16,6 +16,8 @@ type ChatSectionProps = {
 
 export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionProps) {
   const [input, setInput] = useState('')
+  const [linkedInUrl, setLinkedInUrl] = useState('')
+  const [showLinkedIn, setShowLinkedIn] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'initial-message',
@@ -210,6 +212,19 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
           onChange={handleFileChange}
         />
         
+        {showLinkedIn && (
+          <div className="mb-4">
+            <Input
+              type="url"
+              placeholder="LinkedIn Profile URL (Optional)"
+              className="w-full bg-gray-900/70 border-gray-700 text-white focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-950 mb-2"
+              value={linkedInUrl}
+              onChange={(e) => setLinkedInUrl(e.target.value)}
+              disabled={isLoading}
+            />
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="flex gap-3">
           <Input
             type="text"
@@ -228,6 +243,17 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
             disabled={isLoading}
           >
             <Paperclip className="h-4 w-4" />
+          </Button>
+
+          <Button 
+            type="button" 
+            variant="outline"
+            className="border-gray-700 text-gray-300 bg-gray-900/70 hover:bg-gray-800"
+            onClick={() => setShowLinkedIn(!showLinkedIn)}
+            disabled={isLoading}
+            title="Add LinkedIn Profile"
+          >
+            <Linkedin className="h-4 w-4" />
           </Button>
           
           <Button 

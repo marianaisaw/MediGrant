@@ -10,10 +10,12 @@ type NavItem = {
   icon: React.ReactNode
   href: string
   active?: boolean
+  disabled?: boolean
 }
 
 export function Sidebar() {
   const [activeItem, setActiveItem] = useState('Chat')
+  const disabledFeatures = false
   const searchParams = useSearchParams()
   const currentView = searchParams?.get('view') || 'chat'
   
@@ -32,9 +34,9 @@ export function Sidebar() {
   
   const navItems: NavItem[] = [
     { name: 'Chat', icon: <MessageCircle className="h-5 w-5" />, href: '/dashboard', active: activeItem === 'Chat' },
-    { name: 'Home', icon: <BarChart2 className="h-5 w-5" />, href: '/dashboard?view=home', active: activeItem === 'Home' },
-    { name: 'Opportunities', icon: <Search className="h-5 w-5" />, href: '/dashboard?view=opportunities', active: activeItem === 'Opportunities' },
-    { name: 'Proposals', icon: <FileText className="h-5 w-5" />, href: '/dashboard?view=proposals', active: activeItem === 'Proposals' },
+    { name: 'Home', icon: <BarChart2 className="h-5 w-5" />, href: '/dashboard?view=home', active: activeItem === 'Home', disabled: disabledFeatures },
+    { name: 'Opportunities', icon: <Search className="h-5 w-5" />, href: '/dashboard?view=opportunities', active: activeItem === 'Opportunities', disabled: disabledFeatures },
+    { name: 'Proposals', icon: <FileText className="h-5 w-5" />, href: '/dashboard?view=proposals', active: activeItem === 'Proposals', disabled: disabledFeatures },
   ]
 
   return (
@@ -52,16 +54,26 @@ export function Sidebar() {
         <ul className="space-y-2">
           {navItems.map((item) => (
             <li key={item.name}>
-              <Link 
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${item.active 
-                  ? 'bg-blue-800/30 text-white' 
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                onClick={() => setActiveItem(item.name)}
-              >
-                {item.icon}
-                <span>{item.name}</span>
-              </Link>
+              {item.disabled ? (
+                <div 
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-600 cursor-not-allowed opacity-50"
+                  title="This feature is currently disabled"
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                </div>
+              ) : (
+                <Link 
+                  href={item.href}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${item.active 
+                    ? 'bg-blue-800/30 text-white' 
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                  onClick={() => setActiveItem(item.name)}
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                </Link>
+              )}
             </li>
           ))}
         </ul>
