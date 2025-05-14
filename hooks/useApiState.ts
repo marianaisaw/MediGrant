@@ -25,6 +25,11 @@ export function useApiState<T>(initialData: T | null = null): ApiState<T> {
     setError(null);
   }, []);
 
+  const handleSetData = useCallback((newData: T) => {
+    setData(newData);
+    setIsLoading(false);
+  }, []);
+
   const handleError = useCallback((error: Error) => {
     setError(error);
     setIsLoading(false);
@@ -40,7 +45,7 @@ export function useApiState<T>(initialData: T | null = null): ApiState<T> {
     data,
     isLoading,
     error,
-    setData,
+    setData: handleSetData,
     startLoading,
     setError: handleError,
     reset

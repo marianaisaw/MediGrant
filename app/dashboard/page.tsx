@@ -66,7 +66,11 @@ export default function HyperGrantAI() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("swag")
+    console.log(input.trim())
+    console.log(analysisState.isLoading)
     if (!input.trim() || analysisState.isLoading) return
+    console.log("swag")
   
     analysisState.startLoading()
     emitParticles(5)
