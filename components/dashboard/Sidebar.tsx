@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, FileText, BarChart2, LogOut, MessageCircle } from 'lucide-react'
+import { Search, FileText, BarChart2, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
@@ -44,7 +44,7 @@ export function Sidebar() {
           MediGrant
         </h1>
         <p className="text-xs text-blue-200/80 mt-1">
-          Grant Matching Platform
+          Grant Matching Platform Demo
         </p>
       </div>
       
@@ -66,13 +66,6 @@ export function Sidebar() {
           ))}
         </ul>
       </nav>
-      
-      <div className="p-4 border-t border-blue-900/30 mt-auto">
-        <div className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors cursor-pointer">
-          <LogOut className="h-5 w-5" />
-          <span>Sign Out</span>
-        </div>
-      </div>
     </aside>
   )
 }

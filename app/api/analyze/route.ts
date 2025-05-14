@@ -35,22 +35,6 @@ interface ClaudeResponse {
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 const apifyClient = new ApifyClient({ token: process.env.APIFY_API_TOKEN })
-const GRANTS_ENDPOINT = 'https://www.grants.gov/grantsws/rest/opportunities/search'
-
-async function fetchGrants(query: string): Promise<Grant[]> {
-  const params = new URLSearchParams({
-    api_key: process.env.GRANTS_GOV_API_KEY || '',
-    keyword: query,
-    oppStatuses: 'open',
-    sortBy: 'postedDate',
-    sortOrder: 'desc',
-    pageSize: '10',
-  })
-  const res = await fetch(`${GRANTS_ENDPOINT}?${params.toString()}`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data?.opportunities || []
-}
 
 // Process PDF file and extract text using Gemini
 async function processPdf(file: Blob): Promise<string> {
@@ -164,10 +148,6 @@ export async function POST(req: Request) {
       userMessages.length > 0
         ? userMessages[userMessages.length - 1].content
         : ''
-    const keyword =
-      (lastUser.match(/\b([\w-]{4,})\b/g) || []).slice(0, 5).join(' ') || 'health'
-    const grants = await fetchGrants(keyword)
-    const grantsContext = JSON.stringify(grants.slice(0, 5))
 
     const systemPrompt = `You are MediGrant AI, a healthcare funding expert. Your ONLY goal is to generate grant analysis responses in valid strict JSON format, and absolutely NOTHING ELSE.
 
@@ -176,8 +156,6 @@ CRITICAL RULES:
 - Do NOT add ANY natural language explanations, apologies, comments, or formatting.
 - Do NOT wrap the JSON in markdown.
 - If you cannot find enough information, you MUST still output a properly filled JSON object with "Unknown" or "Not Available" values where necessary, but NEVER write natural sentences outside JSON.
-
-Use the following Grants.gov data to improve accuracy: ${grantsContext}
 
 If LinkedIn data is available it is provided after this colon: ${JSON.stringify(
       linkedInData,
