@@ -12,7 +12,7 @@ interface BookDemoModalProps {
 
 export default function BookDemoModal({
   buttonClassName,
-  buttonText = 'Book a Demo'
+  buttonText = 'Contact Us'
 }: BookDemoModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);

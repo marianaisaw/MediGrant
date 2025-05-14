@@ -339,7 +339,7 @@ export default function MediGrantPage() {
               </p>
               <div className="flex justify-center">
               <BookDemoModal 
-                buttonText="Book a Demo"
+                buttonText="Contact Us"
                 buttonClassName="cursor-pointer inline-block px-8 py-4 rounded-full bg-gradient-to-r from-[#3ABEFF] to-[#6FDBFF] text-[#0A0F1C] font-bold hover:shadow-[0_0_40px_rgba(58,190,255,0.6)] transition-all duration-300 relative overflow-hidden group flex justify-center items-center"
               />
               </div>
