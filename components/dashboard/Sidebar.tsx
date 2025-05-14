@@ -1,0 +1,78 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Search, FileText, BarChart2, LogOut, MessageCircle } from 'lucide-react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+
+type NavItem = {
+  name: string
+  icon: React.ReactNode
+  href: string
+  active?: boolean
+}
+
+export function Sidebar() {
+  const [activeItem, setActiveItem] = useState('Chat')
+  const searchParams = useSearchParams()
+  const currentView = searchParams?.get('view') || 'chat'
+  
+  // Set active item based on URL on initial load
+  useEffect(() => {
+    if (currentView === 'home') {
+      setActiveItem('Home')
+    } else if (currentView === 'opportunities') {
+      setActiveItem('Opportunities')
+    } else if (currentView === 'proposals') {
+      setActiveItem('Proposals')
+    } else if (currentView === 'chat' || !currentView) {
+      setActiveItem('Chat')
+    }
+  }, [currentView])
+  
+  const navItems: NavItem[] = [
+    { name: 'Chat', icon: <MessageCircle className="h-5 w-5" />, href: '/dashboard', active: activeItem === 'Chat' },
+    { name: 'Home', icon: <BarChart2 className="h-5 w-5" />, href: '/dashboard?view=home', active: activeItem === 'Home' },
+    { name: 'Opportunities', icon: <Search className="h-5 w-5" />, href: '/dashboard?view=opportunities', active: activeItem === 'Opportunities' },
+    { name: 'Proposals', icon: <FileText className="h-5 w-5" />, href: '/dashboard?view=proposals', active: activeItem === 'Proposals' },
+  ]
+
+  return (
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-900 border-r border-blue-900/30 flex flex-col">
+      <div className="p-6">
+        <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-blue-500 tracking-tighter">
+          MediGrant
+        </h1>
+        <p className="text-xs text-blue-200/80 mt-1">
+          Grant Matching Platform
+        </p>
+      </div>
+      
+      <nav className="flex-1 px-4 mt-6">
+        <ul className="space-y-2">
+          {navItems.map((item) => (
+            <li key={item.name}>
+              <Link 
+                href={item.href}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${item.active 
+                  ? 'bg-blue-800/30 text-white' 
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                onClick={() => setActiveItem(item.name)}
+              >
+                {item.icon}
+                <span>{item.name}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      
+      <div className="p-4 border-t border-blue-900/30 mt-auto">
+        <div className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors cursor-pointer">
+          <LogOut className="h-5 w-5" />
+          <span>Sign Out</span>
+        </div>
+      </div>
+    </aside>
+  )
+}

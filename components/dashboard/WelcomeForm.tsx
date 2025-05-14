@@ -45,7 +45,7 @@ export function WelcomeForm({
   }
 
   return (
-    <div className="flex items-center justify-center min-h-[90vh] transform -translate-y-1/12 w-full">
+    <div className="flex items-center justify-center min-h-[90vh] transform -translate-y-2/12 w-full">
       <input
         ref={fileInputRef}
         type="file"

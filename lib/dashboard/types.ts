@@ -7,17 +7,21 @@ export type Message = {
 }
 
 export type Grant = {
-  grant_name?: string
-  description?: string
   id: string
-  name: string
-  agency: string
+  title?: string          // For dashboard display
+  name?: string           // Original field
+  grant_name?: string     // Alternative field
+  description?: string
+  funder?: string         // For dashboard display
+  agency?: string         // Original field
+  amount?: number         // For dashboard display (numeric value)
+  budget_range?: string   // Original field (string format)
   deadline: string
-  focus_area: string
+  focus_area?: string
   match_reason?: string
-  budget_range?: string
   eligibility?: string[]
   url?: string
+  tags?: string[]         // For dashboard display
 }
 
 export type AnalysisResponse = {

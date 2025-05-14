@@ -1,42 +1,71 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { motion } from 'framer-motion'
 
-import { Header } from '@/components/dashboard/Header'
-import { Footer } from '@/components/dashboard/Footer'
-import { MessageItem } from '@/components/dashboard/MessageItem'
-import { ParticleEffects } from '@/components/dashboard/ParticleEffects'
-import { WelcomeForm } from '@/components/dashboard/WelcomeForm'
+import { Sidebar } from '@/components/dashboard/Sidebar'
+import { DashboardContent } from '@/components/dashboard/DashboardContent'
 
 import { Message, Grant, AnalysisResponse } from '@/lib/dashboard/types'
 import { generateId, typeMessage, formatClaudeResponse } from '@/lib/dashboard/utils'
 import { analyzeQuery } from '@/lib/dashboard/apiService'
 import { useApiState } from '@/hooks/useApiState'
 
-export default function HyperGrantAI() {
+export default function Dashboard() {
+  
+  // Chat state
   const [input, setInput] = useState('')
   const [userProfilePdf, setUserProfilePdf] = useState<File | null>(null)
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'initial-message',
-      content: 'Hello! I\'m MediGrant AI. I can help you find and apply for healthcare research funding. Tell me about your project or what kind of grant you\'re looking for.',
-      sender: 'bot',
-      status: 'complete',
-      grantLinks: []
-    }
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [showLinkedIn, setShowLinkedIn] = useState(false)
   const [linkedInUrl, setLinkedInUrl] = useState('')
   const analysisState = useApiState<AnalysisResponse>(null)
   const [hasQueried, setHasQueried] = useState(false)
   const [particleCount, setParticleCount] = useState(0)
-  const [matchedGrants, setMatchedGrants] = useState<(Grant | string)[]>([])
+  const [matchedGrants, setMatchedGrants] = useState<Grant[]>([
+    {
+      id: 'grant-1',
+      title: 'Innovative Approaches to Cancer Treatment Research',
+      funder: 'National Institutes of Health',
+      amount: 500000,
+      deadline: '2025-08-15',
+      tags: ['Cancer', 'Treatment', 'Innovation']
+    },
+    {
+      id: 'grant-2',
+      title: 'Mental Health in Underserved Communities',
+      funder: 'CDC Foundation',
+      amount: 350000,
+      deadline: '2025-07-30',
+      tags: ['Mental Health', 'Community']
+    },
+    {
+      id: 'grant-3',
+      title: 'Emerging Infectious Disease Preparedness',
+      funder: 'Gates Foundation',
+      amount: 750000,
+      deadline: '2025-09-10',
+      tags: ['Infectious Disease', 'Preparedness']
+    }
+  ])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const headerFullText = 'Hello! I\'m MediGrant AI. Type your query below.'
   const [typedHeader, setTypedHeader] = useState('')
   
+  // Sample keyword suggestions for proposal editor
+  const keywordSuggestions = [
+    { keyword: 'Evidence-based', relevance: 95, used: true },
+    { keyword: 'Patient-centered', relevance: 85, used: false },
+    { keyword: 'Interdisciplinary', relevance: 80, used: true },
+    { keyword: 'Innovative methodology', relevance: 75, used: false },
+    { keyword: 'Health disparities', relevance: 70, used: true },
+    { keyword: 'Translational research', relevance: 65, used: false },
+    { keyword: 'Community engagement', relevance: 60, used: false },
+    { keyword: 'Cost-effective', relevance: 55, used: true }
+  ]
+  
+  // Typing effect for header
   useEffect(() => {
     let currentIndex = 0;
     const intervalId = setInterval(() => {
@@ -51,6 +80,7 @@ export default function HyperGrantAI() {
     return () => clearInterval(intervalId);
   }, []);
 
+  // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: 'smooth',
@@ -112,7 +142,7 @@ export default function HyperGrantAI() {
         pdfFile: userProfilePdf || undefined
       })
       analysisState.setData(analysisData)
-      setMatchedGrants(analysisData.matched_grants)
+      setMatchedGrants(analysisData.matched_grants as Grant[])
   
       // Update analysis message to complete
       updatedMessages = updatedMessages.filter(m => m.id !== analysisId)
@@ -194,65 +224,72 @@ export default function HyperGrantAI() {
       { id: uploadingId, content: 'PDF uploaded successfully. It will be analyzed along with your next query.', sender: 'agent', status: 'complete' }
     ]));
   };
+  
+  // For the dashboard co-pilot section
+  const handleAnalyze = async (text: string) => {
+    if (!text.trim() || analysisState.isLoading) return
+    
+    // Set input and trigger the chat submission
+    setInput(text)
+    await handleSubmit({ preventDefault: () => {} } as React.FormEvent)
+  }
 
   return (
     <motion.div 
-      className="flex flex-col h-screen text-white font-sans"
+      className="flex h-screen text-white font-sans"
       style={{ 
-        background: 'radial-gradient(circle at 50% 0%, rgba(15,23,42,0.8) 0%, rgba(2,6,23,1) 100%)',
-        willChange: 'transform' 
+        background: 'linear-gradient(to bottom, #0f172a, #020617)',
+        backgroundAttachment: 'fixed'
       }}
       ref={containerRef}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.6 }}
+      transition={{ duration: 0.5 }}
     >
-      <Header 
-        showLinkedIn={showLinkedIn}
-        setShowLinkedIn={setShowLinkedIn}
-      />
-
-      <main className="flex-1 overflow-y-auto pt-6 px-6 pb-0 space-y-6 relative overscroll-none">
-        <ParticleEffects particleCount={particleCount} />
-        {messages.map((message) => (
-          <MessageItem
-            key={message.id}
-            message={message}
+      <Suspense fallback={<div className="fixed left-0 top-0 h-screen w-64 bg-gray-900 border-r border-blue-900/30"></div>}>
+        <Sidebar />
+      </Suspense>
+      
+      <div className="flex-1 flex flex-col overflow-hidden pl-64">
+        {/* Header */}
+        <div className="p-6 border-b border-blue-900/30">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-white">MediGrant AI Assistant</h1>
+              <p className="text-gray-400 mt-1">Ask questions about grants or get help with your proposals</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Main Content Area wrapped in Suspense */}
+        <Suspense fallback={<div className="flex-1 overflow-auto p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-24 bg-gray-800/50 rounded"></div>
+            <div className="h-24 bg-gray-800/50 rounded"></div>
+            <div className="h-24 bg-gray-800/50 rounded"></div>
+          </div>
+        </div>}>
+          <DashboardContent
+            messages={messages}
             matchedGrants={matchedGrants}
-            emitParticles={emitParticles}
+            particleCount={particleCount}
             hasQueried={hasQueried}
+            emitParticles={emitParticles}
+            input={input}
+            setInput={setInput}
+            linkedInUrl={linkedInUrl}
+            setLinkedInUrl={setLinkedInUrl}
+            showLinkedIn={showLinkedIn}
+            setShowLinkedIn={setShowLinkedIn}
+            analysisIsLoading={analysisState.isLoading}
+            handleSubmit={handleSubmit}
+            typedHeader={typedHeader}
+            onPdfSelect={handlePdfSelect}
+            handleAnalyze={handleAnalyze}
+            keywordSuggestions={keywordSuggestions}
           />
-        ))}
-        <div ref={messagesEndRef} />
-      </main>
-
-      {!hasQueried && (
-        <WelcomeForm
-          input={input}
-          setInput={setInput}
-          linkedInUrl={linkedInUrl}
-          setLinkedInUrl={setLinkedInUrl}
-          showLinkedIn={showLinkedIn}
-          setShowLinkedIn={setShowLinkedIn}
-          isProcessing={analysisState.isLoading}
-          handleSubmit={handleSubmit}
-          typedHeader={typedHeader}
-          onPdfSelect={handlePdfSelect}
-        />
-      )}
-
-      {hasQueried && (
-        <Footer
-          hasQueried={hasQueried}
-          showLinkedIn={showLinkedIn}
-          setShowLinkedIn={setShowLinkedIn}
-          linkedInUrl={linkedInUrl}
-          setLinkedInUrl={setLinkedInUrl}
-          handleSubmit={handleSubmit}
-          input={input}
-          setInput={setInput}
-        />
-      )}
+        </Suspense>
+      </div>
     </motion.div>
   )
 }
