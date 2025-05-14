@@ -150,7 +150,7 @@ export function OpportunitiesView() {
                   variant={filterCategory === category ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setFilterCategory(category)}
-                  className={filterCategory === category ? 'bg-blue-600' : 'border-gray-700 text-gray-300'}
+                  className={filterCategory === category ? 'bg-blue-600' : 'border-gray-700 text-gray-300 bg-gray-800/50'}
                 >
                   {category}
                 </Button>
@@ -225,7 +225,7 @@ export function OpportunitiesView() {
                           View Details
                         </Button>
                         
-                        <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:bg-gray-800">
+                        <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:bg-gray-800 bg-gray-800/50">
                           <Download className="h-4 w-4 mr-2" />
                           Save
                         </Button>

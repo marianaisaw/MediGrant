@@ -244,7 +244,7 @@ export function ProposalsView() {
                         </Button>
                         
                         {proposal.status === 'draft' && (
-                          <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:bg-gray-800">
+                          <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:bg-gray-800 bg-gray-800/50">
                             <FileCheck className="h-4 w-4 mr-2" />
                             Submit
                           </Button>
@@ -253,7 +253,7 @@ export function ProposalsView() {
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="border-gray-700 text-red-300 hover:bg-red-900/20 hover:border-red-700"
+                          className="border-gray-700 text-red-300 hover:bg-red-900/20 hover:border-red-700 bg-gray-800/50"
                           onClick={() => handleDeleteProposal(proposal.id)}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { FileText, Check, AlertCircle, Save } from 'lucide-react'
+import { FileText, Save } from 'lucide-react'
 
 type KeywordSuggestion = {
   keyword: string
@@ -97,37 +97,6 @@ export function ProposalEditor({
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-gray-300">Keyword Suggestions</h3>
           <p className="text-xs text-gray-400">Including these keywords may increase your proposal&apos;s relevance score.</p>
-          
-          <div className="space-y-2 max-h-[240px] overflow-y-auto pr-2">
-            {updatedSuggestions.map((suggestion, index) => (
-              <div 
-                key={index}
-                className={`p-2 rounded-lg flex items-center justify-between ${suggestion.used ? 'bg-green-900/20 border border-green-500/30' : 'bg-gray-900 border border-gray-700'}`}
-              >
-                <div className="flex items-center gap-2">
-                  {suggestion.used ? (
-                    <Check className="h-4 w-4 text-green-400" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-yellow-400" />
-                  )}
-                  <span className={`text-sm ${suggestion.used ? 'text-green-300' : 'text-gray-300'}`}>
-                    {suggestion.keyword}
-                  </span>
-                </div>
-                
-                <div className="w-16 h-2 bg-gray-700 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full ${suggestion.relevance > 80 ? 'bg-green-500' : suggestion.relevance > 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                    style={{ width: `${suggestion.relevance}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-            
-            {updatedSuggestions.length === 0 && (
-              <p className="text-gray-500 text-sm italic">No keyword suggestions available.</p>
-            )}
-          </div>
         </div>
       </div>
     </Card>
