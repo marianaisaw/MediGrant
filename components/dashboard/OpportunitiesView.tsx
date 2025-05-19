@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Search, Calendar, DollarSign, ExternalLink, Download } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { Search, Calendar, DollarSign, ExternalLink } from 'lucide-react'
 
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,19 @@ interface Grant {
   match_reason?: string;
   budget_range?: string;
   eligibility?: string[];
+}
+
+interface RawGrant {
+  id: string;
+  grant_name: string;
+  agency: string;
+  budget_range: string; 
+  deadline: string;
+  focus_area?: string; 
+  description: string;
+  url?: string;
+  match_reason?: string;
+  eligibility?: string[]; 
 }
 
 export function OpportunitiesView() {
@@ -50,7 +63,7 @@ export function OpportunitiesView() {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      const mappedGrants: Grant[] = data.grants.map((grant: any) => ({
+      const mappedGrants: Grant[] = data.grants.map((grant: RawGrant) => ({
         id: grant.id,
         title: grant.grant_name,
         funder: grant.agency,
