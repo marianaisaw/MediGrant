@@ -5,15 +5,18 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, Search } from 'lucide-react'
 import { Message, Grant } from '@/lib/dashboard/types'
 import { GrantHologram } from './GrantHologram'
+import { Button } from '@/components/ui/button'
 
 type MessageItemProps = {
   message: Message
   matchedGrants: (Grant | string)[]
   emitParticles: (count: number) => void
   hasQueried: boolean
+  onFollowUpClick?: (question: string) => void
+  isLoading?: boolean
 }
 
-export function MessageItem({ message, matchedGrants, emitParticles, hasQueried }: MessageItemProps) {
+export function MessageItem({ message, emitParticles, hasQueried, onFollowUpClick, isLoading }: MessageItemProps) {
   if (!hasQueried) return null
   
   return (
@@ -110,27 +113,49 @@ export function MessageItem({ message, matchedGrants, emitParticles, hasQueried 
                   </div>
                 )}
 
-                {message.grantLinks?.map(grantId => {
-                  const fullGrant = matchedGrants.find(g =>
-                    typeof g === 'string' ? false : g.id === grantId
-                  )
-                  return fullGrant && typeof fullGrant !== 'string' ? (
-                    <GrantHologram key={grantId} grant={fullGrant} />
-                  ) : (
-                    <GrantHologram key={grantId} grant={{
-                      id: grantId,
-                      grant_name: 'Loading grant details...',
-                      name: 'Loading grant details...',
-                      agency: 'Unknown',
-                      description: 'Grant details are being loaded...',
-                      deadline: 'TBD',
-                      focus_area: 'Pending',
-                      match_reason: 'Matched by AI analysis'
-                    }} />
-                  )
+                {/* Render Grant Holograms if linkedGrantData exists */}
+                {message.linkedGrantData?.map(grantInfo => {
+                  // Now we directly use the grantInfo from the message
+                  return (
+                    <GrantHologram key={grantInfo.id} grant={grantInfo} />
+                  );
                 })}
               </div>
             </div>
+            {/* Render Follow-up Questions as Buttons */}
+            {message.sender === 'bot' && message.followUpQuestions && message.followUpQuestions.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-700/50 flex flex-wrap gap-2">
+              {message.followUpQuestions.map((question, index) => (
+                <Button
+                  key={`followup-${message.id}-${index}`}
+                  variant="outline"
+                  size="sm"
+                  className="
+                    px-3 py-2
+                    max-w-[200px]
+                    h-auto
+                    whitespace-normal
+                    break-words
+                    text-center           /* center text inside */
+                    bg-sky-500/10 hover:bg-sky-500/20
+                    border-sky-400/30
+                    text-sky-300 hover:text-sky-200
+                    transition-all duration-150 ease-in-out
+                    shadow-md hover:shadow-sky-500/30
+                    focus:ring-2 focus:ring-sky-500/50 focus:ring-offset-2 focus:ring-offset-gray-800
+                    disabled:bg-sky-500/5 disabled:text-sky-300/40 disabled:border-sky-400/15 disabled:shadow-none disabled:cursor-not-allowed
+                    line-clamp-3          /* Truncate text to 3 lines with ellipsis */
+                    cursor-pointer
+                    "
+                  onClick={() => onFollowUpClick?.(question)}
+                  disabled={isLoading}
+                >
+                  <span className="flex flex-col justify-center items-center text-xs">{question}</span>
+                </Button>
+              ))}
+            </div>
+          )}
+
           </CardContent>
         </Card>
       </motion.div>

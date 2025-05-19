@@ -38,7 +38,7 @@ export function GrantOpportunities({ grants = [], isLoading = false }: GrantOppo
         <div className="space-y-4">
           {grants.map((grant) => (
             <div key={grant.id} className="p-4 bg-gray-900 rounded-lg border border-gray-700 hover:border-blue-500/50 transition-all">
-              <h3 className="font-medium text-white">{grant.title}</h3>
+              <h3 className="font-medium text-white">{grant.grant_name}</h3>
               
               <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center text-gray-400">
@@ -54,16 +54,14 @@ export function GrantOpportunities({ grants = [], isLoading = false }: GrantOppo
               
               <div className="mt-2 flex items-center text-gray-400 text-sm">
                 <Clock className="h-4 w-4 mr-2 text-yellow-500" />
-                {grant.funder}
+                {grant.name}
               </div>
               
               <div className="mt-3 flex justify-between items-center">
                 <div className="flex gap-1">
-                  {grant.tags?.map((tag) => (
-                    <span key={tag} className="px-2 py-1 bg-blue-900/30 text-blue-300 rounded text-xs">
-                      {tag}
-                    </span>
-                  ))}
+                  <span className="px-2 py-1 bg-blue-900/30 text-blue-300 rounded text-xs">
+                    {grant.focus_area}
+                  </span>
                 </div>
                 
                 <Button size="sm" variant="outline" className="text-blue-400 border-blue-500/30 hover:bg-blue-900/30">

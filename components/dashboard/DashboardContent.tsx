@@ -33,6 +33,7 @@ type DashboardContentProps = {
   onPdfSelect: (file: File) => void
   handleAnalyze: (text: string) => Promise<void>
   keywordSuggestions: Array<{keyword: string, relevance: number, used: boolean}>
+  handleFollowUpClick?: (question: string) => void
 }
 
 export function DashboardContent({
@@ -52,7 +53,8 @@ export function DashboardContent({
   typedHeader,
   onPdfSelect,
   handleAnalyze,
-  keywordSuggestions
+  keywordSuggestions,
+  handleFollowUpClick
 }: DashboardContentProps) {
   // Get the current view from URL query parameters
   const searchParams = useSearchParams()
@@ -74,6 +76,8 @@ export function DashboardContent({
                 matchedGrants={matchedGrants}
                 emitParticles={emitParticles}
                 hasQueried={hasQueried}
+                onFollowUpClick={handleFollowUpClick}
+                isLoading={analysisIsLoading}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -180,6 +184,8 @@ export function DashboardContent({
                 matchedGrants={matchedGrants}
                 emitParticles={emitParticles}
                 hasQueried={hasQueried}
+                onFollowUpClick={handleFollowUpClick}
+                isLoading={analysisIsLoading}
               />
             ))}
             <div ref={messagesEndRef} />

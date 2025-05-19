@@ -24,16 +24,22 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
       content: 'Hello! I\'m MediGrant AI. I can help you find and apply for healthcare research funding. Tell me about your project or what kind of grant you\'re looking for.',
       sender: 'bot',
       status: 'complete',
-      grantLinks: []
+      linkedGrantData: [],
+      followUpQuestions: [
+        "What kind of research are you working on?",
+        "Are you looking for a specific type of grant?",
+        "Tell me about your project's goals."
+      ],
+      timestamp: new Date()
     }
   ])
-  const [matchedGrants, setMatchedGrants] = useState<(Grant | string)[]>([])
+  const [matchedGrants, setMatchedGrants] = useState<Grant[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
-      behavior: 'smooth',
+      behavior: 'auto',
       block: 'end',
     })
   }, [messages])
@@ -44,20 +50,22 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, followUpQuery?: string) => {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
+    const currentQuery = followUpQuery || input
+    if (!currentQuery.trim() || isLoading) return
   
     // Add user message to chat
     const userMessage: Message = {
       id: generateId(),
-      content: input,
+      content: currentQuery,
       sender: 'user',
-      status: 'complete'
+      status: 'complete',
+      timestamp: new Date()
     }
     let updatedMessages = [...messages, userMessage]
     setMessages(updatedMessages)
-    setInput('')
+    if (!followUpQuery) setInput('') // Clear input only if it's not a follow-up click
   
     try {
       // Show analysis in progress message
@@ -66,7 +74,8 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
         id: analysisId,
         content: 'Analyzing project details...',
         sender: 'agent',
-        status: 'analyzing'
+        status: 'analyzing',
+        timestamp: new Date()
       }]
       setMessages(updatedMessages)
   
@@ -85,23 +94,27 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
         matched_grants: [
           {
             id: 'grant-demo-1',
-            title: 'Healthcare Innovation Research Grant',
-            funder: 'National Institutes of Health',
-            amount: 450000,
+            name: 'Healthcare Innovation Research Grant',
+            agency: 'National Institutes of Health',
             deadline: '2025-09-15',
-            tags: ['Innovation', 'Research']
+            focus_area: 'Innovation',
+            description: 'A grant for innovative healthcare research projects.',
           },
           {
             id: 'grant-demo-2',
-            title: 'Community Health Improvement Program',
-            funder: 'CDC Foundation',
-            amount: 275000,
+            name: 'Community Health Improvement Program',
+            agency: 'CDC Foundation',
             deadline: '2025-08-30',
-            tags: ['Community', 'Health']
+            focus_area: 'Community Health',
+            description: 'A program to improve community health outcomes.',
           }
-        ],
+        ] as Grant[],
         next_steps: ["Review the grant details", "Prepare your proposal"],
-        follow_up_questions: ["Would you like more information about any specific grant?"],
+        follow_up_questions: [
+          "Would you like more information about any specific grant?",
+          "Can you tell me more about your research methodology?",
+          "What is your project timeline?"
+        ],
         confidence_score: 0.85
       }
       
@@ -111,7 +124,8 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
         id: analysisId,
         content: 'Analysis complete',
         sender: 'agent',
-        status: 'complete'
+        status: 'complete',
+        timestamp: new Date()
       })
       
       // Show searching animation
@@ -120,7 +134,8 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
         id: searchId,
         content: `Searching for funding opportunities...`,
         sender: 'agent',
-        status: 'searching'
+        status: 'searching',
+        timestamp: new Date()
       }]
       setMessages(updatedMessages)
 
@@ -128,8 +143,7 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
       
       // Format and display the response
       const formattedResponse = {
-        text: `I've analyzed your project and found ${mockResponse.matched_grants.length} relevant grants that match your criteria. The most promising is the ${mockResponse.matched_grants[0].title} from ${mockResponse.matched_grants[0].funder} with funding up to $${mockResponse.matched_grants[0].amount.toLocaleString()}.`,
-        followUp: "Would you like me to help you prepare a proposal for any of these grants?"
+        text: `I've analyzed your project and found ${mockResponse.matched_grants.length} relevant grants that match your criteria. The most promising is the ${mockResponse.matched_grants[0].name} from ${mockResponse.matched_grants[0].agency}.`,
       }
       
       const botMessageId = generateId()
@@ -138,21 +152,49 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
       await typeMessage(formattedResponse.text, updatedMessages, botMessageId, setMessages, emitParticles)
       
       // Add the complete message
-      updatedMessages = [...updatedMessages.filter(m => m.id !== searchId), {
-        id: botMessageId,
-        content: formattedResponse.text,
-        sender: 'bot',
-        status: 'complete',
-        grantLinks: mockResponse.matched_grants.map(g => typeof g === 'string' ? g : g.id)
-      }]
+      // Find the message added by typeMessage to update it, preserving its timestamp
+      const finalBotMessageIndex = updatedMessages.findIndex(m => m.id === botMessageId);
+      if (finalBotMessageIndex !== -1) {
+        const originalBotMessage = updatedMessages[finalBotMessageIndex];
+        updatedMessages[finalBotMessageIndex] = {
+          ...originalBotMessage, // Spread original message to keep its timestamp and other props
+          id: botMessageId, // Ensure id is correct
+          content: formattedResponse.text, // Ensure content is final
+          sender: 'bot', // Ensure sender is correct
+          status: 'complete', // Ensure status is correct
+          linkedGrantData: mockResponse.matched_grants.map(g => ({
+            id: g.id,
+            name: g.name,
+            grant_name: g.grant_name, // grant_name might be undefined if not in mock, that's ok
+            agency: g.agency,
+            deadline: g.deadline,
+            focus_area: g.focus_area
+          })),
+          followUpQuestions: mockResponse.follow_up_questions
+          // timestamp is preserved from originalBotMessage
+        };
+      } else {
+        // Fallback: if message not found (should not happen), create a new one
+        updatedMessages = [...updatedMessages.filter(m => m.id !== searchId), {
+          id: botMessageId,
+          content: formattedResponse.text,
+          sender: 'bot',
+          status: 'complete',
+          linkedGrantData: mockResponse.matched_grants.map(g => ({ 
+            id: g.id, 
+            name: g.name, 
+            grant_name: g.grant_name, 
+            agency: g.agency, 
+            deadline: g.deadline, 
+            focus_area: g.focus_area 
+          })),
+          followUpQuestions: mockResponse.follow_up_questions,
+          timestamp: new Date() // New timestamp as a fallback
+        }];
+      }
       
       setMessages(updatedMessages)
       setMatchedGrants(mockResponse.matched_grants)
-      
-      // Add follow-up message
-      await new Promise(resolve => setTimeout(resolve, 500))
-      const followUpId = generateId()
-      await typeMessage(formattedResponse.followUp, updatedMessages, followUpId, setMessages, emitParticles)
       
     } catch (error) {
       console.error('API Error:', error)
@@ -178,9 +220,15 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
       const uploadingId = generateId()
       setMessages(prev => ([
         ...prev,
-        { id: uploadingId, content: `PDF uploaded: ${file.name}. It will be analyzed along with your next query.`, sender: 'agent', status: 'complete' }
+        { id: uploadingId, content: `PDF uploaded: ${file.name}. It will be analyzed along with your next query.`, sender: 'agent', status: 'complete', timestamp: new Date() }
       ]))
     }
+  }
+
+  const handleFollowUpClick = (question: string) => {
+    console.log('Follow-up question:', question)
+    // setInput(question) // Optional: set input field with the question
+    handleSubmit(new Event('submit') as unknown as React.FormEvent, question)
   }
 
   return (
@@ -198,6 +246,8 @@ export function ChatSection({ isLoading = false, onEmitParticles }: ChatSectionP
             matchedGrants={matchedGrants}
             emitParticles={emitParticles}
             hasQueried={true}
+            onFollowUpClick={handleFollowUpClick}
+            isLoading={isLoading}
           />
         ))}
         <div ref={messagesEndRef} />

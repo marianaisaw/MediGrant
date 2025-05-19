@@ -64,8 +64,28 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 const apifyClient = new ApifyClient({ token: process.env.APIFY_API_TOKEN })
 const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! })
 
+async function determineGrantIntent(query: string): Promise<boolean> {
+  const prompt = `Analyze this query to determine if the user is seeking grant/funding opportunities. 
+Respond ONLY with "1" if yes or "0" if no. No explanations.
+Examples:
+Query: "Find renewable energy grants" -> 1
+Query: "Help write a grant proposal" -> 0
+Query: "${query}" ->`;
 
-// Process PDF file and extract text using Gemini
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash-001',
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    });
+    
+    const decision = response.text?.trim();
+    return decision === '1';
+  } catch (error) {
+    console.error('Grant intent detection error:', error);
+    return false;
+  }
+}
+
 async function processPdf(file: Blob): Promise<string> {
   try {
     const fileMime = file.type || 'application/pdf';
@@ -236,28 +256,29 @@ export async function POST(req: Request) {
 
     const lastUserMessage = userMessages[userMessages.length - 1]?.content || ''
     
-    // Search Pinecone using built-in embeddings
-    const matchedGrants = await searchPineconeGrants(lastUserMessage)
+    const showGrants = await determineGrantIntent(lastUserMessage);
+    let matchedGrants: Grant[] = [];
 
-    // Build enhanced prompt with Pinecone results
-    const systemPrompt = `You are MediGrant AI analyzing funding opportunities. Use this data:
+    if (showGrants) {
+      // Basically 0 if no grant 1 if theres grant boom
+      matchedGrants = await searchPineconeGrants(lastUserMessage);
+    }
+    const systemPrompt = `You are MediGrant AI. ${showGrants ? 
+      `Analyze these funding opportunities:` : `Respond without grant information:`}
     
-    Matched Grants (${matchedGrants.length}):
+    ${showGrants ? `Matched Grants (${matchedGrants.length}):
     ${matchedGrants.slice(0, 3).map(g => `
     - ${g.grant_name} by ${g.agency}
-      Focus: ${g.focus_area}
-      Deadline: ${g.deadline}
-      Budget: ${g.budget_range}
-      Eligibility: ${g.eligibility.join(', ')}`).join('\n')}
+      Focus: ${g.focus_area}`).join('\n') || 'None'}` : ''}
 
     LinkedIn Data: ${linkedInData ? JSON.stringify(linkedInData) : 'None'}
     PDF Excerpt: ${pdfText?.substring(0, 2000) || 'None'}
 
     Generate JSON response with:
-    - analysis_summary: 2-3 paragraph analysis
+    - analysis_summary: ${showGrants ? '2-3 paragraph analysis' : 'General response'}
     - follow_up_questions: 3 relevant questions
     - next_steps: 3 concrete steps
-    - confidence_score: 0-1 based on match quality`
+    ${showGrants ? '- confidence_score: 0-1 based on match quality' : ''}`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash-001',
@@ -267,21 +288,30 @@ export async function POST(req: Request) {
     try {
       const analysis = JSON.parse(response.text ?? '')
 
-      const finalResponse: ClaudeResponse = {
-        ...analysis,
-        matched_grants: matchedGrants
+      if (showGrants) {
+        const finalResponse: ClaudeResponse = {
+          ...analysis,
+          matched_grants: matchedGrants
+        }
+        return NextResponse.json(finalResponse)
+      } else {
+        return NextResponse.json(analysis)
       }
-
-      return NextResponse.json(finalResponse)
     } catch {
       const match = response.text?.match(/(\{[\s\S]*\})/)
       if (match) {
         const jsonResponse: ClaudeResponse = JSON.parse(match[1])
-        const finalResponse: ClaudeResponse = {
-          ...jsonResponse,
-          matched_grants: matchedGrants
+          if (showGrants) {
+            const finalResponse: ClaudeResponse = {
+              ...jsonResponse,
+              matched_grants: matchedGrants
+            }
+            console.log(finalResponse)
+            return NextResponse.json(finalResponse)
+          } else {
+            console.log(jsonResponse)
+            return NextResponse.json(jsonResponse)
         }
-        return NextResponse.json(finalResponse)
       }
     }
 
