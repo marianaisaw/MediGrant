@@ -134,7 +134,7 @@ export async function POST(req: Request) {
     // This method implies Pinecone handles embedding the text query.
     const searchResponse = await ns.searchRecords({
       query: {
-        topK: 5, // Fetch top 5 results
+        topK: 20, // Fetch top 5 results
         inputs: { text: query }, // Query by text
       },
       fields: ['*'], // Request all metadata fields
