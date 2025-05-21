@@ -29,7 +29,7 @@ export function Sidebar() {
       setActiveItem('Proposals')
     } else if (currentView === 'chat' || !currentView) {
       setActiveItem('Chat')
-    } else if (currentView === 'deep-research' || !currentView) {
+    } else if (currentView === 'deep-research') {
       setActiveItem('Deep Research')
     }
   }, [currentView])
