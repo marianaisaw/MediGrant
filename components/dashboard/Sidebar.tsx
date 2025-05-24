@@ -37,9 +37,6 @@ export function Sidebar() {
   const navItems: NavItem[] = [
     { name: 'Chat', icon: <MessageCircle className="h-5 w-5" />, href: '/dashboard', active: activeItem === 'Chat' },
     { name: 'Opportunities', icon: <Search className="h-5 w-5" />, href: '/dashboard?view=opportunities', active: activeItem === 'Opportunities', disabled: disabledFeatures },
-    { name: 'Home', icon: <BarChart2 className="h-5 w-5" />, href: '/dashboard?view=home', active: activeItem === 'Home', disabled: disabledFeatures },
-    { name: 'Proposals', icon: <FileText className="h-5 w-5" />, href: '/dashboard?view=proposals', active: activeItem === 'Proposals', disabled: disabledFeatures },
-    { name: 'Deep Research', icon: <BookOpen className="h-5 w-5" />, href: '/dashboard?view=deep-research', active: activeItem === 'Deep Research', disabled: disabledFeatures },
   ]
 
   return (
