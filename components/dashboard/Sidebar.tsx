@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, FileText, BarChart2, MessageCircle, BookOpen  } from 'lucide-react'
+import { Search, MessageCircle  } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
